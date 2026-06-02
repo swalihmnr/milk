@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Bell, Truck, AlertTriangle, BadgeCheck, TrendingUp, 
@@ -18,6 +19,7 @@ import { api } from '@/lib/api';
 import { useFetch } from '@/hooks/useApi';
 
 export default function FarmerDashboard() {
+  const navigate = useNavigate();
   const { data: customers, loading: loadingCust } = useFetch<any[]>('/customers');
   const { data: cows, loading: loadingCows } = useFetch<any[]>('/cows');
   const { data: invoices, loading: loadingInv } = useFetch<any[]>('/invoices');
@@ -26,7 +28,7 @@ export default function FarmerDashboard() {
 
   useEffect(() => {
     // Fetch production for the last 7 days
-    api.get('/milk-production')
+    api.get('/production')
       .then(res => {
         const raw = res.data.data;
         // Group by day for the chart
@@ -34,7 +36,7 @@ export default function FarmerDashboard() {
         const chartData = days.map(day => ({
           name: day,
           volume: raw.filter((p: any) => new Date(p.createdAt).getDay() === days.indexOf(day))
-                    .reduce((sum: number, p: any) => sum + p.yieldLiters, 0) || 0
+                    .reduce((sum: number, p: any) => sum + p.totalLiters, 0) || 0
         }));
         // Rotate so today is last
         const today = new Date().getDay();
@@ -239,7 +241,7 @@ export default function FarmerDashboard() {
                 </span>
               </div>
               <button 
-                onClick={() => window.location.href='/dashboard/herd'}
+                onClick={() => navigate('/dashboard/cows')}
                 className="w-full h-12 bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
               >
                 Manage Herd <ChevronRight className="h-4 w-4" />
@@ -257,7 +259,7 @@ export default function FarmerDashboard() {
             <p className="text-sm text-gray-500 font-medium mt-1">Last 5 generated invoices</p>
           </div>
           <button 
-            onClick={() => window.location.href='/dashboard/billing'}
+            onClick={() => navigate('/dashboard/billing')}
             className="flex items-center gap-2 text-sm font-bold text-[#0052cc] bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all"
           >
             All Invoices <ArrowUpRight className="h-4 w-4" />

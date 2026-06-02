@@ -3,17 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   PawPrint, Activity, Syringe, Search, Plus, Milk, 
-  CheckCircle2, AlertTriangle, ChevronDown, Filter, Calendar
+  CheckCircle2, AlertTriangle, ChevronDown, Filter, Calendar,
+  Edit3, Trash2, X, Loader2, ChevronRight
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import toast from 'react-hot-toast';
 
 export default function CowProductionList() {
   const [cows, setCows] = useState<any[]>([]);
   const [openCow, setOpenCow] = useState(false);
   const [openMilk, setOpenMilk] = useState(false);
+  const [selectedCow, setSelectedCow] = useState<any>(null);
+  const [openDetails, setOpenDetails] = useState(false);
   
   // Updated cowData to match backend schema
   const [cowData, setCowData] = useState({ 
@@ -21,7 +25,8 @@ export default function CowProductionList() {
     breed: '', 
     age: '', 
     purchaseOrBirthDate: '', 
-    healthStatus: 'healthy' 
+    healthStatus: 'healthy',
+    averageMilkOutput: ''
   });
   
   const [milkData, setMilkData] = useState({ 
@@ -48,11 +53,11 @@ export default function CowProductionList() {
       await api.post('/cows', { 
         ...cowData, 
         age: Number(cowData.age),
-        // Send ISO string date
+        averageMilkOutput: cowData.averageMilkOutput ? Number(cowData.averageMilkOutput) : 0,
         purchaseOrBirthDate: new Date(cowData.purchaseOrBirthDate).toISOString()
       });
       setOpenCow(false);
-      setCowData({ cowCode: '', breed: '', age: '', purchaseOrBirthDate: '', healthStatus: 'healthy' });
+      setCowData({ cowCode: '', breed: '', age: '', purchaseOrBirthDate: '', healthStatus: 'healthy', averageMilkOutput: '' });
       fetchCows();
     } catch (err) {
       console.error(err);
@@ -75,7 +80,7 @@ export default function CowProductionList() {
         fatPercentage: Number(milkData.fatContent) || undefined
       };
 
-      await api.post('/milk-production', payload);
+      await api.post('/production', payload);
       setOpenMilk(false);
       setMilkData({ 
         cowId: '', 
@@ -92,10 +97,26 @@ export default function CowProductionList() {
     }
   };
 
-  const filteredCows = cows.filter(c => 
-    c.cowCode.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.breed.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [healthFilter, setHealthFilter] = useState<'all' | 'healthy' | 'sick' | 'pregnant' | 'dry'>('all');
+  const [sortBy, setSortBy] = useState<'id-asc' | 'id-desc' | 'yield-desc' | 'yield-asc' | 'age-desc' | 'age-asc'>('id-asc');
+
+  const filteredCows = cows
+    .filter(c => {
+      const matchesSearch = 
+        c.cowCode.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        c.breed.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesHealth = healthFilter === 'all' || c.healthStatus === healthFilter;
+      return matchesSearch && matchesHealth;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'id-asc') return a.cowCode.localeCompare(b.cowCode);
+      if (sortBy === 'id-desc') return b.cowCode.localeCompare(a.cowCode);
+      if (sortBy === 'yield-desc') return (b.averageMilkOutput || 0) - (a.averageMilkOutput || 0);
+      if (sortBy === 'yield-asc') return (a.averageMilkOutput || 0) - (b.averageMilkOutput || 0);
+      if (sortBy === 'age-desc') return (b.age || 0) - (a.age || 0);
+      if (sortBy === 'age-asc') return (a.age || 0) - (b.age || 0);
+      return 0;
+    });
 
   // Dynamic calculations
   const totalCows = cows.length;
@@ -156,9 +177,15 @@ export default function CowProductionList() {
                     <Input type="number" min="0" step="0.1" placeholder="e.g. 3.5" value={cowData.age} onChange={e => setCowData({...cowData, age: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl focus:bg-white focus:border-[#0052cc]" required />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Date of Birth / Purchase</Label>
-                  <Input type="date" value={cowData.purchaseOrBirthDate} onChange={e => setCowData({...cowData, purchaseOrBirthDate: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl focus:bg-white focus:border-[#0052cc]" required />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Date of Birth / Purchase</Label>
+                    <Input type="date" value={cowData.purchaseOrBirthDate} onChange={e => setCowData({...cowData, purchaseOrBirthDate: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl focus:bg-white focus:border-[#0052cc]" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Avg Yield (Liters)</Label>
+                    <Input type="number" min="0" step="0.1" placeholder="e.g. 15" value={cowData.averageMilkOutput} onChange={e => setCowData({...cowData, averageMilkOutput: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl focus:bg-white focus:border-[#0052cc]" />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Initial Health Status</Label>
@@ -281,13 +308,37 @@ export default function CowProductionList() {
             <h3 className="text-2xl font-black text-gray-900">Herd Profiles</h3>
             <p className="text-sm text-gray-500 font-medium mt-1">Showing {filteredCows.length} registered animals</p>
           </div>
-          <div className="flex items-center gap-2">
-             <Button variant="outline" className="rounded-xl border-gray-100 text-gray-500 font-bold flex items-center gap-2 h-10 hover:bg-gray-50">
-               <Filter className="h-4 w-4" /> Filter
-             </Button>
-             <Button variant="outline" className="rounded-xl border-gray-100 text-gray-500 font-bold flex items-center gap-2 h-10 hover:bg-gray-50">
-               Sort: ID <ChevronDown className="h-4 w-4 ml-1" />
-             </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex items-center bg-gray-50 rounded-2xl border border-transparent focus-within:bg-white focus-within:border-[#0052cc]/20 transition-all px-3 py-1.5">
+              <Filter className="h-4 w-4 text-gray-400 mr-2" />
+              <select 
+                value={healthFilter} 
+                onChange={(e: any) => setHealthFilter(e.target.value)}
+                className="bg-transparent text-sm font-black text-gray-700 outline-none cursor-pointer pr-1"
+              >
+                <option value="all">All Statuses</option>
+                <option value="healthy">Healthy</option>
+                <option value="sick">Sick</option>
+                <option value="pregnant">Pregnant</option>
+                <option value="dry">Dry</option>
+              </select>
+            </div>
+
+            <div className="relative flex items-center bg-gray-50 rounded-2xl border border-transparent focus-within:bg-white focus-within:border-[#0052cc]/20 transition-all px-3 py-1.5">
+              <span className="text-sm font-black text-gray-400 mr-2">Sort</span>
+              <select 
+                value={sortBy} 
+                onChange={(e: any) => setSortBy(e.target.value)}
+                className="bg-transparent text-sm font-black text-gray-700 outline-none cursor-pointer pr-1"
+              >
+                <option value="id-asc">Tag ID (A-Z)</option>
+                <option value="id-desc">Tag ID (Z-A)</option>
+                <option value="yield-desc">Yield (High-Low)</option>
+                <option value="yield-asc">Yield (Low-High)</option>
+                <option value="age-desc">Age (Oldest)</option>
+                <option value="age-asc">Age (Youngest)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -312,7 +363,11 @@ export default function CowProductionList() {
               const statusColor = statusColors[c.healthStatus as keyof typeof statusColors] || statusColors.healthy;
 
               return (
-                <div key={c._id} className="group relative bg-white border border-gray-100 rounded-3xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                <div 
+                  key={c._id} 
+                  onClick={() => { setSelectedCow(c); setOpenDetails(true); }}
+                  className="group relative bg-white border border-gray-100 rounded-3xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
+                >
                   {/* Decorative accent top border */}
                   <div className={`absolute top-0 left-0 right-0 h-1.5 ${isHealthy ? 'bg-green-400' : 'bg-red-400'}`}></div>
                   
@@ -354,9 +409,18 @@ export default function CowProductionList() {
                           <Milk className="h-3 w-3" /> Avg Yield
                         </p>
                         <p className="font-bold text-sm text-gray-900 truncate">
-                          {c.averageMilkOutput ? `${c.averageMilkOutput} L` : 'N/A'}
+                          {c.averageMilkOutput !== undefined && c.averageMilkOutput !== null ? `${c.averageMilkOutput} L` : 'N/A'}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="pt-4 mt-2 border-t border-gray-50 flex justify-end">
+                      <Button 
+                        variant="ghost" 
+                        className="rounded-xl h-10 px-4 text-[#0052cc] font-black hover:bg-blue-50 transition-all flex items-center gap-2"
+                      >
+                        Details <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -365,6 +429,377 @@ export default function CowProductionList() {
           </div>
         )}
       </div>
+      
+      <CowDetailsModal 
+        isOpen={openDetails} 
+        onClose={() => { setOpenDetails(false); setSelectedCow(null); }} 
+        cow={selectedCow} 
+        onUpdate={fetchCows} 
+      />
     </div>
+  );
+}
+
+// ─── Detailed Cow Profile Modal ───────────────────────────────────────────────────
+function CowDetailsModal({ isOpen, onClose, cow, onUpdate }: { isOpen: boolean; onClose: () => void; cow: any; onUpdate: () => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [productionHistory, setProductionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
+  const [form, setForm] = useState({
+    cowCode: '',
+    breed: '',
+    age: '',
+    purchaseOrBirthDate: '',
+    healthStatus: 'healthy',
+    pregnancyStatus: '',
+    averageMilkOutput: '',
+    feedType: '',
+    lastVaccinationDate: '',
+    nextVaccinationDate: '',
+    vetName: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    if (cow && isOpen) {
+      setForm({
+        cowCode: cow.cowCode || '',
+        breed: cow.breed || '',
+        age: cow.age?.toString() || '',
+        purchaseOrBirthDate: cow.purchaseOrBirthDate ? new Date(cow.purchaseOrBirthDate).toISOString().split('T')[0] : '',
+        healthStatus: cow.healthStatus || 'healthy',
+        pregnancyStatus: cow.pregnancyStatus || '',
+        averageMilkOutput: cow.averageMilkOutput?.toString() || '',
+        feedType: cow.feedType || '',
+        lastVaccinationDate: cow.lastVaccinationDate ? new Date(cow.lastVaccinationDate).toISOString().split('T')[0] : '',
+        nextVaccinationDate: cow.nextVaccinationDate ? new Date(cow.nextVaccinationDate).toISOString().split('T')[0] : '',
+        vetName: cow.vetName || '',
+        notes: cow.notes || ''
+      });
+
+      // Fetch production history
+      setLoadingHistory(true);
+      api.get('/production')
+        .then(res => {
+          const cowLogs = res.data.data.filter((p: any) => p.cowId === cow._id);
+          setProductionHistory(cowLogs.slice(0, 5));
+        })
+        .catch(err => console.error("Failed to load production logs", err))
+        .finally(() => setLoadingHistory(false));
+    }
+  }, [cow, isOpen]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = {
+        ...form,
+        age: Number(form.age),
+        averageMilkOutput: Number(form.averageMilkOutput) || 0,
+        purchaseOrBirthDate: form.purchaseOrBirthDate ? new Date(form.purchaseOrBirthDate).toISOString() : undefined,
+        lastVaccinationDate: form.lastVaccinationDate ? new Date(form.lastVaccinationDate).toISOString() : undefined,
+        nextVaccinationDate: form.nextVaccinationDate ? new Date(form.nextVaccinationDate).toISOString() : undefined,
+      };
+      await api.put(`/cows/${cow._id}`, payload);
+      toast.success("Cow details updated");
+      setIsEditing(false);
+      onUpdate();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update cow details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setLoading(true);
+    try {
+      await api.delete(`/cows/${cow._id}`);
+      toast.success("Cow removed from herd");
+      onClose();
+      onUpdate();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete cow");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!cow) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-[#0052cc] to-[#0073e6] p-8 text-white relative">
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-[1.2rem] bg-white/10 flex items-center justify-center text-white text-2xl font-black">
+              <PawPrint className="h-8 w-8" />
+            </div>
+            <div>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-2xl font-black">{isEditing ? "Edit Cow Profile" : `Cow Tag: ${cow.cowCode}`}</DialogTitle>
+                  {!isEditing && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                      cow.healthStatus === 'healthy' ? 'bg-green-500/20 text-green-200' :
+                      cow.healthStatus === 'sick' ? 'bg-red-500/20 text-red-200' :
+                      cow.healthStatus === 'pregnant' ? 'bg-blue-500/20 text-blue-200' : 'bg-orange-500/20 text-orange-200'
+                    }`}>
+                      {cow.healthStatus}
+                    </span>
+                  )}
+                </div>
+                <p className="text-blue-100 text-xs mt-1">{cow.breed} • {cow.age} Years Old</p>
+              </DialogHeader>
+            </div>
+          </div>
+        </div>
+
+        {isEditing ? (
+          <form onSubmit={handleSave} className="p-8 space-y-5 bg-white max-h-[70vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Cow ID / Tag Code</Label>
+                <Input value={form.cowCode} onChange={e => setForm({...form, cowCode: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Breed</Label>
+                <Input value={form.breed} onChange={e => setForm({...form, breed: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl" required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Age (Years)</Label>
+                <Input type="number" step="0.1" value={form.age} onChange={e => setForm({...form, age: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Acquired Date</Label>
+                <Input type="date" value={form.purchaseOrBirthDate} onChange={e => setForm({...form, purchaseOrBirthDate: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl" required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Health Status</Label>
+                <select 
+                  className="flex h-12 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0052cc] focus:bg-white transition-all"
+                  value={form.healthStatus} 
+                  onChange={e => setForm({...form, healthStatus: e.target.value})} 
+                  required
+                >
+                  <option value="healthy">Healthy</option>
+                  <option value="sick">Sick</option>
+                  <option value="pregnant">Pregnant</option>
+                  <option value="dry">Dry</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Pregnancy Info (Optional)</Label>
+                <Input value={form.pregnancyStatus} disabled={form.healthStatus !== 'pregnant'} onChange={e => setForm({...form, pregnancyStatus: e.target.value})} placeholder="e.g. Month 4" className="h-12 bg-gray-50 border-gray-100 rounded-xl" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Avg Yield (Liters)</Label>
+                <Input type="number" step="0.1" value={form.averageMilkOutput} onChange={e => setForm({...form, averageMilkOutput: e.target.value})} className="h-12 bg-gray-50 border-gray-100 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Feed Type</Label>
+                <Input value={form.feedType} onChange={e => setForm({...form, feedType: e.target.value})} placeholder="e.g. Dry fodder & mash" className="h-12 bg-gray-50 border-gray-100 rounded-xl" />
+              </div>
+            </div>
+
+            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 space-y-4">
+              <h4 className="text-xs font-black text-[#0052cc] uppercase tracking-widest">Medical & Veterinary Details</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Last Vaccination</Label>
+                  <Input type="date" value={form.lastVaccinationDate} onChange={e => setForm({...form, lastVaccinationDate: e.target.value})} className="h-10 bg-white border-gray-200 rounded-lg text-xs" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Next Due Date</Label>
+                  <Input type="date" value={form.nextVaccinationDate} onChange={e => setForm({...form, nextVaccinationDate: e.target.value})} className="h-10 bg-white border-gray-200 rounded-lg text-xs" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Attending Vet Name</Label>
+                <Input value={form.vetName} onChange={e => setForm({...form, vetName: e.target.value})} placeholder="Dr. Sharma" className="h-10 bg-white border-gray-200 rounded-lg text-xs" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">General Notes</Label>
+              <Input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Any behavioral or milking details" className="h-12 bg-gray-50 border-gray-100 rounded-xl" />
+            </div>
+
+            <DialogFooter className="pt-4 flex gap-3">
+              <Button type="button" variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-bold h-12 text-gray-500 hover:bg-gray-100">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading} className="h-12 bg-[#0052cc] hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20">
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : (
+          <div className="p-8 space-y-6 bg-white max-h-[70vh] overflow-y-auto">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50/50 border border-blue-100/50 rounded-2xl p-4 text-center">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Avg Output</span>
+                <p className="text-lg font-black text-blue-900 mt-1">{cow.averageMilkOutput || 0} L</p>
+              </div>
+              <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-2xl p-4 text-center">
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Feed Type</span>
+                <p className="text-xs font-black text-emerald-900 mt-2 truncate" title={cow.feedType || "Default fodder"}>{cow.feedType || "Fodder"}</p>
+              </div>
+              <div className="bg-orange-50/50 border border-orange-100/50 rounded-2xl p-4 text-center">
+                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Acquired</span>
+                <p className="text-xs font-black text-orange-900 mt-2">
+                  {cow.purchaseOrBirthDate ? new Date(cow.purchaseOrBirthDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Cow Information</h4>
+              <div className="grid grid-cols-2 gap-y-3 text-sm bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Breed</span>
+                  <span className="font-bold text-gray-800">{cow.breed}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Age</span>
+                  <span className="font-bold text-gray-800">{cow.age} Years</span>
+                </div>
+                {cow.healthStatus === 'pregnant' && (
+                  <div className="flex flex-col col-span-2 mt-1">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Pregnancy Details</span>
+                    <span className="font-bold text-blue-600">{cow.pregnancyStatus || 'Confirmed'}</span>
+                  </div>
+                )}
+                <div className="flex flex-col col-span-2 mt-1">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">General Notes</span>
+                  <span className="font-medium text-gray-600 italic">"{cow.notes || 'No notes added yet.'}"</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Medical Info */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Vaccination & Health Log</h4>
+              <div className="grid grid-cols-2 gap-y-3 text-sm bg-gray-50/50 border border-gray-100 rounded-2xl p-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Last Vaccinated</span>
+                  <span className="font-bold text-gray-800">{cow.lastVaccinationDate ? new Date(cow.lastVaccinationDate).toLocaleDateString() : 'None Recorded'}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Next Due Date</span>
+                  <span className="font-bold text-gray-800">{cow.nextVaccinationDate ? new Date(cow.nextVaccinationDate).toLocaleDateString() : 'Not Set'}</span>
+                </div>
+                <div className="flex flex-col col-span-2 mt-1">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Attending Vet</span>
+                  <span className="font-bold text-gray-800">{cow.vetName || 'No Vet Assigned'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Milking History */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Recent Milking Sessions</h4>
+              <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white">
+                {loadingHistory ? (
+                  <div className="p-8 text-center text-gray-400 flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0052cc]" />
+                    <span className="font-bold">Fetching logs...</span>
+                  </div>
+                ) : productionHistory.length > 0 ? (
+                  <div className="divide-y divide-gray-50">
+                    {productionHistory.map((log: any) => (
+                      <div key={log._id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                            <Milk className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-gray-900">{log.totalLiters} Liters Yield</p>
+                            <p className="text-[9px] text-gray-400 font-black uppercase mt-0.5">
+                              {log.morningLiters > 0 ? "Morning shift" : "Evening shift"} • {new Date(log.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        {log.fatPercentage && (
+                          <span className="text-[10px] font-black bg-blue-50 text-[#0052cc] px-2 py-0.5 rounded-md">
+                            Fat: {log.fatPercentage}%
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-8 text-center text-gray-400 font-medium text-xs">No milking session logs found for this cow.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+              <Button onClick={() => setIsEditing(true)} variant="outline" className="flex-1 rounded-xl font-bold h-12 flex items-center justify-center gap-2 border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-100">
+                <Edit3 className="h-4 w-4" /> Edit Profile
+              </Button>
+              <Button onClick={() => setIsDeleteConfirmOpen(true)} disabled={loading} variant="outline" className="flex-1 rounded-xl font-bold h-12 flex items-center justify-center gap-2 border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-100">
+                <Trash2 className="h-4 w-4" /> Delete Cow
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+
+      {/* Premium Custom Confirmation Modal */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-6 text-red-700 border-b border-red-100/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-red-600 animate-bounce" /> Delete Cow Profile?
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-gray-600 font-medium text-sm leading-relaxed">
+              Are you sure you want to delete Cow <span className="font-bold text-gray-900">{cow.cowCode}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 rounded-xl h-12 border-gray-200 font-bold hover:bg-gray-50 text-gray-500"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleDelete();
+                  setIsDeleteConfirmOpen(false);
+                }}
+                className="flex-1 rounded-xl h-12 bg-red-600 hover:bg-red-700 text-white font-black shadow-lg shadow-red-500/20"
+              >
+                Delete Cow
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Dialog>
   );
 }

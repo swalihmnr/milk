@@ -5,7 +5,7 @@ import {
   Droplet, CreditCard, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, Edit3, Trash2,
   TrendingUp, Package, History, Loader2, Navigation,
-  X, Truck
+  X, Truck, Plus, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import FarmMapPicker from '@/components/ui/FarmMapPicker';
 import type { MapCoords } from '@/components/ui/FarmMapPicker';
 import toast from 'react-hot-toast';
+import CreateSubscriptionModal from '../subscriptions/CreateSubscriptionModal';
 
 export default function CustomerDetails() {
   const { id } = useParams();
@@ -27,6 +28,8 @@ export default function CustomerDetails() {
   const [loading, setLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [openSubModal, setOpenSubModal] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -60,7 +63,6 @@ export default function CustomerDetails() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this customer? This action cannot be undone.")) return;
     setDeleting(true);
     try {
       await api.delete(`/customers/${id}`);
@@ -115,7 +117,7 @@ export default function CustomerDetails() {
             <Edit3 className="h-4 w-4 text-blue-500" /> Edit Profile
           </Button>
           <Button 
-            onClick={handleDelete}
+            onClick={() => setIsDeleteConfirmOpen(true)}
             disabled={deleting}
             variant="outline" className="flex-1 sm:flex-none rounded-xl border-gray-100 font-bold flex items-center gap-2 text-red-500 hover:bg-red-50 hover:border-red-100 h-11"
           >
@@ -221,10 +223,15 @@ export default function CustomerDetails() {
                   </div>
                 </div>
               ) : (
-                <div className="p-10 text-center border-2 border-dashed border-gray-100 rounded-[2.5rem]">
-                  <Droplet className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                <div className="p-10 text-center border-2 border-dashed border-gray-100 rounded-[2.5rem] space-y-3">
+                  <Droplet className="h-10 w-10 text-gray-200 mx-auto mb-2" />
                   <p className="font-bold text-gray-400">No active subscription found</p>
-                  <Button variant="link" className="text-[#0052cc] font-bold">Activate a Plan</Button>
+                  <Button 
+                    onClick={() => setOpenSubModal(true)}
+                    className="bg-[#0052cc] hover:bg-[#003d99] text-white font-black rounded-xl px-6 py-3 text-xs shadow-md transition-all active:scale-95"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" /> Activate a Plan
+                  </Button>
                 </div>
               )}
               
@@ -352,6 +359,52 @@ export default function CustomerDetails() {
           fetchData(); // Refresh all
         }}
       />
+
+      <CreateSubscriptionModal
+        isOpen={openSubModal}
+        onClose={() => setOpenSubModal(false)}
+        onSuccess={() => {
+          setOpenSubModal(false);
+          fetchData();
+        }}
+        prefilledCustomerId={id}
+      />
+
+      {/* Premium Custom Confirmation Modal */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-6 text-red-700 border-b border-red-100/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-red-600 animate-bounce" /> Terminate Profile?
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-gray-600 font-medium text-sm leading-relaxed">
+              Are you sure you want to delete this customer? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 rounded-xl h-12 border-gray-200 font-bold hover:bg-gray-50 text-gray-500"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleDelete();
+                  setIsDeleteConfirmOpen(false);
+                }}
+                className="flex-1 rounded-xl h-12 bg-red-600 hover:bg-red-700 text-white font-black shadow-lg shadow-red-500/20"
+              >
+                Terminate Customer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

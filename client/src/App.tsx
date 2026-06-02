@@ -53,6 +53,7 @@ function App() {
           <Route path="customers/:id" element={<CustomerDetails />} />
           <Route path="cows" element={<CowProductionList />} />
           <Route path="subscriptions" element={<SubscriptionList />} />
+          <Route path="products" element={<ProductManager />} />
           <Route path="deliveries" element={<RouteManager />} />
           <Route path="delivery-boys" element={<DeliveryBoysManager />} />
           <Route path="billing" element={<BillingDashboard />} />

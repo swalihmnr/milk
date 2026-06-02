@@ -15,16 +15,15 @@ interface CreateSubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  prefilledCustomerId?: string;
 }
 
-export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: CreateSubscriptionModalProps) {
+export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess, prefilledCustomerId }: CreateSubscriptionModalProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [isCustom, setIsCustom] = useState(false);
-  
+
   const [form, setForm] = useState({
     customerId: '',
     planName: '',
@@ -38,21 +37,29 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
 
   useEffect(() => {
     if (isOpen) {
+      setForm(prev => ({
+        ...prev,
+        customerId: prefilledCustomerId || '',
+        planName: '',
+        planType: 'daily',
+        frequency: 'daily',
+        quantity: 1,
+        billingCycle: 'monthly',
+        price: 0,
+        startDate: new Date().toISOString().split('T')[0]
+      }));
       setFetching(true);
-      // Fetch customers and products
-      Promise.all([
-        api.get('/customers'),
-        api.get('/products')
-      ]).then(([custRes, prodRes]) => {
-        setCustomers(custRes.data.data);
-        setProducts(prodRes.data.data);
-      }).catch(err => {
-        toast.error("Failed to load options");
-      }).finally(() => {
-        setFetching(false);
-      });
+      
+      api.get('/customers')
+        .then((custRes) => {
+          setCustomers(custRes.data.data);
+        }).catch(err => {
+          toast.error("Failed to load options");
+        }).finally(() => {
+          setFetching(false);
+        });
     }
-  }, [isOpen]);
+  }, [isOpen, prefilledCustomerId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,19 +78,6 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
       toast.error(err.response?.data?.message || "Failed to create subscription");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleProductChange = (val: string) => {
-    const product = products.find(p => p.name === val || p._id === val);
-    if (product) {
-      setForm(prev => ({ 
-        ...prev, 
-        planName: product.name,
-        price: product.price
-      }));
-    } else {
-      setForm(prev => ({ ...prev, planName: val }));
     }
   };
 
@@ -168,10 +162,10 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
 
         <form onSubmit={handleSubmit} className="p-8 space-y-5 bg-white">
           <div className="space-y-4">
-            {/* Customer Selection */}
-            <div className="space-y-2">
+             {/* Customer Selection */}
+             <div className="space-y-2">
               <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Customer</Label>
-              <Select onValueChange={(val) => setForm({ ...form, customerId: val })}>
+              <Select value={form.customerId} onValueChange={(val) => setForm({ ...form, customerId: val })} disabled={!!prefilledCustomerId}>
                 <SelectTrigger className="h-12 bg-gray-50 border-gray-100 rounded-xl">
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
@@ -183,38 +177,16 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
               </Select>
             </div>
 
-            {/* Product/Plan Name */}
+            {/* Plan Name */}
             <div className="space-y-2">
-              <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Product / Plan</Label>
-              <Select 
-                onValueChange={(val) => {
-                  if (val === 'Custom') {
-                    setIsCustom(true);
-                    setForm(prev => ({ ...prev, planName: '' }));
-                  } else {
-                    setIsCustom(false);
-                    handleProductChange(val);
-                  }
-                }}
-              >
-                <SelectTrigger className="h-12 bg-gray-50 border-gray-100 rounded-xl">
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {products.map(p => (
-                    <SelectItem key={p._id} value={p._id}>{p.name} - ₹{p.price}/{p.unit}</SelectItem>
-                  ))}
-                  <SelectItem value="Custom">Custom Plan...</SelectItem>
-                </SelectContent>
-              </Select>
-              {isCustom && (
-                <Input 
-                  placeholder="Enter custom plan name"
-                  value={form.planName}
-                  onChange={e => setForm({ ...form, planName: e.target.value })}
-                  className="mt-2 h-12 bg-gray-50 border-gray-100 rounded-xl animate-in fade-in slide-in-from-top-1"
-                />
-              )}
+              <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Plan Name</Label>
+              <Input 
+                placeholder="e.g. Daily Buffalo Milk, Custom Cow Milk"
+                value={form.planName}
+                onChange={e => setForm({ ...form, planName: e.target.value })}
+                className="h-12 bg-gray-50 border-gray-100 rounded-xl focus:bg-white focus:border-[#0052cc]"
+                required
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -232,6 +204,7 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
                   />
                 </div>
               </div>
+
               {/* Price */}
               <div className="space-y-2">
                 <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Price per L</Label>
@@ -245,19 +218,19 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Start Date */}
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Start Date</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input 
-                    type="date" 
-                    value={form.startDate}
-                    onChange={e => setForm({ ...form, startDate: e.target.value })}
-                    className="pl-10 h-12 bg-gray-50 border-gray-100 rounded-xl"
-                  />
-                </div>
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Start Date</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  type="date" 
+                  value={form.startDate}
+                  onChange={e => setForm({ ...form, startDate: e.target.value })}
+                  className="pl-10 h-12 bg-gray-50 border-gray-100 rounded-xl"
+                />
               </div>
             </div>
 

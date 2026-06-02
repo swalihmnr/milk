@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { useFetch } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertTriangle } from 'lucide-react';
 
 interface Customer { _id: string; name: string; phone: string; address: string; routeId?: string; }
 interface DeliveryBoy { _id: string; name: string; phone: string; vehicleType?: string; }
@@ -12,6 +15,7 @@ interface Route { _id: string; name: string; area: string; status: 'active' | 'i
 
 // ─── Assign Boy Modal ────────────────────────────────────────────────────────
 function AssignModal({ route, deliveryBoys, onClose, onAssigned }: { route: Route; deliveryBoys: DeliveryBoy[]; onClose: () => void; onAssigned: (r: Route) => void; }) {
+  const navigate = useNavigate();
   const [selected, setSelected] = useState(route.deliveryBoyId?._id || '');
   const [saving, setSaving] = useState(false);
 
@@ -44,9 +48,21 @@ function AssignModal({ route, deliveryBoys, onClose, onAssigned }: { route: Rout
             {selected === '' && <CheckCircle2 className="h-5 w-5 text-red-400 ml-auto" />}
           </button>
           {deliveryBoys.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
-              <Truck className="h-10 w-10 mx-auto mb-2 opacity-20" />
-              <p className="text-sm font-medium">No delivery boys registered yet</p>
+            <div className="text-center py-8 text-gray-400 flex flex-col items-center gap-4">
+              <Truck className="h-10 w-10 opacity-20" />
+              <div>
+                <p className="text-sm font-medium">No delivery boys registered yet</p>
+                <p className="text-xs text-gray-400 mt-1">You must register delivery boys first.</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  onClose();
+                  navigate("/dashboard/delivery-boys");
+                }}
+                className="bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-2xl px-5 h-10 shadow-lg shadow-blue-500/20 text-xs shrink-0 flex items-center gap-2"
+              >
+                <Plus className="h-3.5 w-3.5" /> Register Delivery Boy
+              </Button>
             </div>
           )}
           {deliveryBoys.map(boy => (
@@ -218,6 +234,7 @@ export default function RouteManager() {
   const [assignTarget, setAssignTarget] = useState<Route | null>(null);
   const [formRoute, setFormRoute] = useState<Route | null | undefined>(undefined); // undefined=closed, null=create, Route=edit
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteRouteId, setConfirmDeleteRouteId] = useState<string | null>(null);
 
   const handleAssigned = useCallback((updated: Route) => {
     setRoutes(prev => prev ? prev.map(r => r._id === updated._id ? updated : r) : prev);
@@ -232,7 +249,6 @@ export default function RouteManager() {
   }, [setRoutes]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this route? Customers will be unassigned.')) return;
     setDeletingId(id);
     try {
       await api.delete(`/routes/${id}`);
@@ -339,9 +355,13 @@ export default function RouteManager() {
                           <div><p className="text-xs font-black text-gray-900 leading-tight">{route.deliveryBoyId.name}</p><p className="text-[10px] text-gray-500">{route.deliveryBoyId.phone}</p></div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 bg-gray-50 border border-dashed border-gray-200 px-3 py-2 rounded-xl text-gray-400">
-                          <User className="h-4 w-4" /><span className="text-xs font-bold">No delivery boy</span>
-                        </div>
+                        <button 
+                          onClick={() => setAssignTarget(route)}
+                          className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 hover:text-[#0052cc] border border-dashed border-gray-200 hover:border-blue-200 px-3 py-2 rounded-xl text-gray-400 transition-all active:scale-95 cursor-pointer"
+                        >
+                          <User className="h-4 w-4" />
+                          <span className="text-xs font-bold">Assign Delivery Boy</span>
+                        </button>
                       )}
                     </div>
 
@@ -357,7 +377,7 @@ export default function RouteManager() {
                         className={`h-9 rounded-xl font-bold ${route.status === 'active' ? 'text-orange-500 border-orange-200 hover:bg-orange-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
                         {route.status === 'active' ? 'Deactivate' : 'Activate'}
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(route._id)} disabled={deletingId === route._id}
+                      <Button size="sm" variant="outline" onClick={() => setConfirmDeleteRouteId(route._id)} disabled={deletingId === route._id}
                         className="h-9 w-9 p-0 rounded-xl text-red-400 border-red-100 hover:bg-red-50">
                         {deletingId === route._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       </Button>
@@ -372,6 +392,44 @@ export default function RouteManager() {
 
       {assignTarget && <AssignModal route={assignTarget} deliveryBoys={deliveryBoys || []} onClose={() => setAssignTarget(null)} onAssigned={r => { handleAssigned(r); setAssignTarget(null); }} />}
       {formRoute !== undefined && <RouteFormModal editRoute={formRoute} onClose={() => setFormRoute(undefined)} onSaved={handleSaved} />}
+
+      {/* Premium Custom Confirmation Modal */}
+      <Dialog open={!!confirmDeleteRouteId} onOpenChange={(open) => !open && setConfirmDeleteRouteId(null)}>
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-6 text-red-700 border-b border-red-100/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-red-600 animate-bounce" /> Delete Route?
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-gray-600 font-medium text-sm leading-relaxed">
+              Are you sure you want to delete this route? Customers assigned to this route will be unassigned.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setConfirmDeleteRouteId(null)}
+                className="flex-1 rounded-xl h-12 border-gray-200 font-bold hover:bg-gray-50 text-gray-500"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (confirmDeleteRouteId) {
+                    handleDelete(confirmDeleteRouteId);
+                  }
+                  setConfirmDeleteRouteId(null);
+                }}
+                className="flex-1 rounded-xl h-12 bg-red-600 hover:bg-red-700 text-white font-black shadow-lg shadow-red-500/20"
+              >
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useFetch } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertTriangle } from 'lucide-react';
 
 interface DeliveryBoy {
   _id: string;
@@ -134,6 +136,7 @@ export default function DeliveryBoysManager() {
   const [showRegister, setShowRegister] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteBoy, setConfirmDeleteBoy] = useState<DeliveryBoy | null>(null);
 
   const handleRegistered = useCallback((boy: DeliveryBoy) => {
     setBoys(prev => prev ? [boy, ...prev] : [boy]);
@@ -150,7 +153,6 @@ export default function DeliveryBoysManager() {
   };
 
   const handleDelete = async (boy: DeliveryBoy) => {
-    if (!confirm(`Remove ${boy.name}? This will delete their account permanently.`)) return;
     setDeletingId(boy._id);
     try {
       await api.delete(`/delivery-boys/${boy._id}`);
@@ -295,10 +297,10 @@ export default function DeliveryBoysManager() {
                             : <><ToggleLeft className="h-4 w-4" /> Activate</>
                         }
                       </button>
-                      <Button
+                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDelete(boy)}
+                        onClick={() => setConfirmDeleteBoy(boy)}
                         disabled={deletingId === boy._id}
                         className="h-9 w-9 p-0 rounded-xl text-red-400 border-red-100 hover:bg-red-50"
                       >
@@ -316,6 +318,44 @@ export default function DeliveryBoysManager() {
       {showRegister && (
         <RegisterModal onClose={() => setShowRegister(false)} onRegistered={handleRegistered} />
       )}
+
+      {/* Premium Custom Confirmation Modal */}
+      <Dialog open={!!confirmDeleteBoy} onOpenChange={(open) => !open && setConfirmDeleteBoy(null)}>
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-6 text-red-700 border-b border-red-100/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-red-600 animate-bounce" /> Remove Delivery Boy?
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-gray-600 font-medium text-sm leading-relaxed">
+              Are you sure you want to remove <span className="font-bold text-gray-900">{confirmDeleteBoy?.name}</span>? This will delete their account permanently.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setConfirmDeleteBoy(null)}
+                className="flex-1 rounded-xl h-12 border-gray-200 font-bold hover:bg-gray-50 text-gray-500"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (confirmDeleteBoy) {
+                    handleDelete(confirmDeleteBoy);
+                  }
+                  setConfirmDeleteBoy(null);
+                }}
+                className="flex-1 rounded-xl h-12 bg-red-600 hover:bg-red-700 text-white font-black shadow-lg shadow-red-500/20"
+              >
+                Remove Boy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

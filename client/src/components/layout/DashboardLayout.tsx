@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, BarChart2, Tractor, Users, Truck, ReceiptText, Settings, LayoutGrid, PawPrint, UserCircle2, Droplet, UserCheck, CalendarClock } from 'lucide-react';
+import { LogOut, BarChart2, Tractor, Users, Truck, ReceiptText, Settings, LayoutGrid, PawPrint, UserCircle2, Droplet, UserCheck, CalendarClock, Package } from 'lucide-react';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -68,6 +68,8 @@ export default function DashboardLayout() {
           <Link to="/dashboard/subscriptions" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/subscriptions' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
             <CalendarClock className="h-5 w-5" /> Milk Plans
           </Link>
+
+
 
           <Link to="/dashboard/deliveries" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/deliveries' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
             <Truck className="h-5 w-5" /> Delivery Routes

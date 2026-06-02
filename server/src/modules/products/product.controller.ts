@@ -26,7 +26,15 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
 // @access  Private (Vendor/Admin)
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.create(req.body);
+    let { categoryId, ...productData } = req.body;
+    if (!categoryId) {
+      let defaultCat = await Category.findOne({ name: 'Milk' });
+      if (!defaultCat) {
+        defaultCat = await Category.create({ name: 'Milk', slug: 'milk' });
+      }
+      categoryId = defaultCat._id;
+    }
+    const product = await Product.create({ ...productData, categoryId });
     res.status(201).json({ data: product });
   } catch (error) {
     next(error);
@@ -73,7 +81,11 @@ export const deleteProduct = async (req: Request, res: Response, next: NextFunct
 // @access  Public
 export const getCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const categories = await Category.find();
+    let categories = await Category.find();
+    if (categories.length === 0) {
+      const defaultCat = await Category.create({ name: 'Milk', slug: 'milk' });
+      categories = [defaultCat];
+    }
     res.status(200).json({ count: categories.length, data: categories });
   } catch (error) {
     next(error);
