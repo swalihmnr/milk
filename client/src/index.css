@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+  --color-primary: #111827; /* Darker gray for headers */
+  --color-secondary: #f8fafc; /* Very light blue/gray background */
+  --color-accent: #0052cc; /* Specific Embaric deep blue */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-secondary);
+    color: var(--color-primary);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
