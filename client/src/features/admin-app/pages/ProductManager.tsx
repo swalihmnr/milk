@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Milk, Loader2 } from 'lucide-react';
 import { useProducts, useCategories } from '../../../hooks/useApi';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function ProductManager() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [activeTab, setActiveTab] = useState('products');
-  const { data: products, loading: prodLoading } = useProducts();
+  const { data: products, loading: prodLoading } = useProducts(
+    isAdmin ? undefined : { vendorId: user?.vendorId || user?._id }
+  );
   const { data: categories, loading: catLoading } = useCategories();
 
   return (

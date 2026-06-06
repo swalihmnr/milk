@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { Eye, EyeOff, Phone, Lock, ArrowRight, Droplets, TrendingUp, Users, Shield, Tractor } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const loginSchema = z.object({
   phone: z.string().min(10, 'Enter a valid phone number'),
@@ -25,9 +26,102 @@ const features = [
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
   const [selectedRole, setSelectedRole] = useState<'farmer' | 'customer'>('farmer');
+
+  const demoPortals = [
+    {
+      name: 'Farmer ERP',
+      desc: 'Herd, production & yields',
+      icon: '🌾',
+      path: '/dashboard',
+      role: 'farmer',
+      userData: {
+        _id: 'mock_farmer_id',
+        name: 'Arjun Sunrise',
+        phone: '9876543210',
+        role: 'farmer' as const,
+        farmName: 'Sunrise Dairy Farm',
+        herdSize: 45
+      }
+    },
+    {
+      name: 'Customer App',
+      desc: 'Subscriptions & Calendar',
+      icon: '🛍️',
+      path: '/my-app',
+      role: 'customer',
+      userData: {
+        _id: 'mock_customer_id',
+        name: 'Aditya Sen',
+        phone: '9999988888',
+        role: 'customer' as const
+      }
+    },
+    {
+      name: 'Delivery App',
+      desc: 'Route Maps & Earnings',
+      icon: '🚚',
+      path: '/delivery-app',
+      role: 'delivery',
+      userData: {
+        _id: 'mock_delivery_id',
+        name: 'Rajesh Kumar',
+        phone: '9555544444',
+        role: 'delivery' as const
+      }
+    },
+    {
+      name: 'Platform Admin',
+      desc: 'Approvals & Logs',
+      icon: '🛡️',
+      path: '/admin-app',
+      role: 'admin',
+      userData: {
+        _id: 'mock_admin_id',
+        name: 'Super Admin',
+        phone: '9000000000',
+        role: 'admin' as const
+      }
+    },
+    {
+      name: 'Vendor Panel',
+      desc: 'Milk plans & CRM',
+      icon: '🏪',
+      path: '/vendor-app',
+      role: 'vendor',
+      userData: {
+        _id: 'mock_vendor_id',
+        name: 'Green Meadows Inc',
+        phone: '9111122222',
+        role: 'vendor' as const,
+        vendorId: 'vendor_001'
+      }
+    },
+    {
+      name: 'Veterinary Desk',
+      desc: 'Cattle consultations',
+      icon: '🩺',
+      path: '/vet-app',
+      role: 'vet',
+      userData: {
+        _id: 'mock_vet_id',
+        name: 'Dr. Sarah Verghese',
+        phone: '9333322222',
+        role: 'vet' as const,
+        farmName: 'Veterinary Care Unit'
+      }
+    }
+  ];
+
+  const handleQuickLogin = (portal: typeof demoPortals[0]) => {
+    localStorage.setItem('mockUser', JSON.stringify(portal.userData));
+    localStorage.setItem('token', 'mock-token-' + encodeURIComponent(JSON.stringify(portal.userData)));
+    login(portal.userData as any);
+    navigate(portal.path);
+  };
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -38,7 +132,9 @@ export default function Login() {
     try {
       await api.post('/auth/login', { ...data, role: selectedRole });
       // Redirect based on role
-      navigate(selectedRole === 'customer' ? '/my-app' : '/dashboard');
+      if (selectedRole === 'customer') navigate('/my-app');
+      else if (selectedRole === 'delivery') navigate('/delivery-app');
+      else navigate('/dashboard');
     } catch (error: any) {
       setServerError(error?.response?.data?.message || 'Invalid credentials. Please try again.');
     }
@@ -139,21 +235,21 @@ export default function Login() {
             <Label className="text-sm font-semibold text-gray-700">Sign in as</Label>
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl">
               {[
-                { value: 'farmer' as const, label: '🌾 Dairy Farmer', desc: 'Farm portal' },
-                { value: 'customer' as const, label: '🛍️ Customer', desc: 'Delivery portal' },
+                { value: 'farmer' as const, label: '🌾 Farmer', desc: 'Farm portal' },
+                { value: 'customer' as const, label: '🛍️ Customer', desc: 'Shop portal' },
               ].map(({ value, label, desc }) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setSelectedRole(value)}
-                  className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-150 text-center ${
+                  onClick={() => setSelectedRole(value as any)}
+                  className={`flex flex-col items-center py-2.5 px-2 rounded-lg transition-all duration-150 text-center ${
                     selectedRole === value
                       ? 'bg-white shadow-sm text-[#0052cc] border border-gray-200'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <span className="text-sm font-semibold">{label}</span>
-                  <span className="text-[10px] text-gray-400 mt-0.5">{desc}</span>
+                  <span className="text-sm font-semibold whitespace-nowrap">{label}</span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 whitespace-nowrap">{desc}</span>
                 </button>
               ))}
             </div>
@@ -238,11 +334,26 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Social / Demo button */}
-          <button className="w-full h-12 border border-gray-200 bg-white rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2">
-            <span className="text-base">🐄</span>
-            Demo Account (farmer@demo.com)
-          </button>
+          {/* Quick Access Demo Portals Grid */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quick Access Demo Portals</p>
+            <div className="grid grid-cols-2 gap-2">
+              {demoPortals.map((portal) => (
+                <button
+                  key={portal.name}
+                  type="button"
+                  onClick={() => handleQuickLogin(portal)}
+                  className="bg-white border border-slate-150 hover:border-blue-500 hover:shadow-sm rounded-2xl p-3 text-left transition-all active:scale-95 group"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-base group-hover:scale-110 transition-transform">{portal.icon}</span>
+                    <span className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">{portal.name}</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-450 leading-tight">{portal.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Sign up link */}
           <p className="text-center text-sm text-gray-500 mt-6">
@@ -258,6 +369,22 @@ export default function Login() {
             {' & '}
             <span className="text-gray-500 hover:underline cursor-pointer">Privacy Policy</span>
           </p>
+
+          {/* Delivery Boy CTA */}
+          <div className="mt-8 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <span className="text-xl">🛵</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900">Do you want to be a delivery boy?</p>
+                <p className="text-xs text-gray-500">Sign up here to find nearby farm jobs.</p>
+              </div>
+            </div>
+            <Link to="/signup?role=delivery" className="h-8 px-4 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg flex items-center justify-center transition-colors">
+              Apply Now
+            </Link>
+          </div>
         </div>
       </div>
     </div>

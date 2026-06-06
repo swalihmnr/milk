@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Milk, IndianRupee, Calendar, Bell, HelpCircle,
   CheckCircle2, AlertTriangle, Droplets, ChevronRight,
   Home, Receipt, Package, MessageCircle, Sun, Moon,
   PauseCircle, PlayCircle, Phone, MapPin, Star, Clock,
-  TrendingUp, X, Send, ArrowRight
+  TrendingUp, X, Send, ArrowRight, Briefcase
 } from 'lucide-react';
+import { api } from '../../lib/api';
+import { Link } from 'react-router-dom';
 
 const TABS = ['home', 'deliveries', 'billing', 'support'] as const;
 type Tab = typeof TABS[number];
@@ -45,6 +47,25 @@ export default function CustomerAppDashboard() {
   const [ticketMsg, setTicketMsg] = useState('');
   const [ticketSent, setTicketSent] = useState(false);
   const [notifications] = useState(2);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    try {
+      const [jobsRes, appsRes] = await Promise.all([
+        api.get('/jobs'),
+        api.get('/jobs/applications/me')
+      ]);
+      if (jobsRes.data.success) setJobs(jobsRes.data.data);
+      if (appsRes.data.success) setMyApplications(appsRes.data.data);
+    } catch (error) {
+      console.error('Failed to fetch gig data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? 'Good Morning' : greetingHour < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -285,6 +306,90 @@ export default function CustomerAppDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Delivery Opportunities */}
+              {jobs && jobs.length > 0 && (
+                <div className="bg-gradient-to-br from-[#0052cc] to-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-blue-200">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/20">
+                        <Briefcase className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-lg leading-tight">Delivery Gigs</h3>
+                        <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-0.5">Earn Extra Income</p>
+                      </div>
+                    </div>
+                    <span className="bg-white/20 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase border border-white/20">
+                      {jobs.length} Open
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {jobs.slice(0, 2).map((job, idx) => {
+                      const appliedApp = myApplications.find(a => a.jobId?._id === job._id);
+                      
+                      return (
+                        <div key={idx} className="bg-white/10 border border-white/20 rounded-2xl p-4 backdrop-blur-sm hover:bg-white/15 transition-colors">
+                          <div className="flex justify-between items-start mb-2">
+                            <p className="font-bold text-sm text-white line-clamp-1">{job.title}</p>
+                            {appliedApp && (
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                appliedApp.status === 'accepted' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                                appliedApp.status === 'rejected' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                                'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              }`}>
+                                {appliedApp.status.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-blue-100 mb-4 flex items-center gap-1.5">
+                            <MapPin className="h-3 w-3" /> {job.farmerId?.farmName || job.farmerId?.name || 'Local Farm'}
+                          </p>
+                          
+                          {appliedApp ? (
+                            <div className="flex gap-2">
+                              {['pending', 'verified_by_admin'].includes(appliedApp.status) && (
+                                <button 
+                                  onClick={async () => {
+                                    try {
+                                      await api.delete(`/jobs/applications/${appliedApp._id}`);
+                                      fetchData();
+                                    } catch (err: any) {
+                                      alert(err.response?.data?.message || 'Failed to withdraw application');
+                                    }
+                                  }}
+                                  className="w-full inline-flex items-center justify-center bg-red-500/20 text-red-100 font-black py-2.5 rounded-xl text-xs active:scale-95 transition-all hover:bg-red-500/30 border border-red-500/30"
+                                >
+                                  Withdraw
+                                </button>
+                              )}
+                              <div className="w-full inline-flex items-center justify-center bg-white/10 text-white font-black py-2.5 rounded-xl text-xs border border-white/10 opacity-70">
+                                Applied
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await api.post(`/jobs/${job._id}/apply`);
+                                  fetchData();
+                                  alert('Application sent successfully! The farm will contact you.');
+                                } catch (err: any) {
+                                  alert(err.response?.data?.message || 'Failed to apply. You might have already applied.');
+                                }
+                              }}
+                              className="w-full inline-flex items-center justify-center bg-white text-[#0052cc] font-black py-2.5 rounded-xl text-xs active:scale-95 transition-all hover:bg-blue-50 shadow-sm"
+                            >
+                              Apply Now
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

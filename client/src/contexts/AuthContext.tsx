@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { api } from '../lib/api';
 
 interface User {
@@ -6,7 +7,7 @@ interface User {
   name: string;
   email?: string;
   phone: string;
-  role: 'customer' | 'admin' | 'vendor' | 'delivery';
+  role: 'customer' | 'admin' | 'vendor' | 'delivery' | 'vet';
   vendorId?: string;
   farmName?: string;
   addressLine?: string;
@@ -33,6 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const fetchUser = async () => {
+      const savedMockUser = localStorage.getItem('mockUser');
+      if (savedMockUser) {
+        setUser(JSON.parse(savedMockUser));
+        setLoading(false);
+        return;
+      }
       try {
         const response = await api.get('/auth/me');
         setUser(response.data.data);
@@ -47,7 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUser();
   }, []);
 
-  const login = (userData: User) => setUser(userData);
+  const login = (userData: User) => {
+    setUser(userData);
+  };
   
   const logout = async () => {
     try {
@@ -55,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Logout failed", err);
     } finally {
+      localStorage.removeItem('mockUser');
+      localStorage.removeItem('token');
       setUser(null);
       window.location.href = '/login';
     }

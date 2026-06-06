@@ -65,6 +65,7 @@ export function useVendorStats(vendorId: string) {
   return { data, loading, error };
 }
 
-export function useVendors() {
-  return useFetch<any[]>('/vendors');
+export function useVendors(coords?: { lat?: number; lon?: number }) {
+  const query = coords && coords.lat && coords.lon ? `?lat=${coords.lat}&lon=${coords.lon}` : '';
+  return useFetch<any[]>(`/vendors${query}`);
 }

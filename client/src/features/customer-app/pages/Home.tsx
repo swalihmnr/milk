@@ -1,22 +1,49 @@
-import React, { useState } from 'react';
-import { Search, ChevronRight, Droplets, Star, TrendingUp, Milk, Loader2, Sparkles, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, ChevronRight, Droplets, Star, TrendingUp, Milk, Loader2, Sparkles, MapPin, Briefcase } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useProducts, useCategories } from '../../../hooks/useApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCart } from '../../../contexts/CartContext';
+import { api } from '../../../lib/api';
+import toast from 'react-hot-toast';
 
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: categories, loading: catLoading } = useCategories();
   const { data: popularProducts, loading: prodLoading } = useProducts({ popular: true });
+  const { data: allProducts } = useProducts();
   const { addToCart } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
+  const [jobToApply, setJobToApply] = useState<any>(null);
+
+  const fetchGigData = async () => {
+    try {
+      if (!user) return;
+      const [jobsRes, appsRes] = await Promise.all([
+        api.get('/jobs'),
+        api.get('/jobs/applications/me')
+      ]);
+      if (jobsRes.data.success) setJobs(jobsRes.data.data);
+      if (appsRes.data.success) setMyApplications(appsRes.data.data);
+    } catch (error) {
+      console.error('Failed to fetch gig data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchGigData();
+  }, [user]);
 
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? 'Good Morning' : greetingHour < 17 ? 'Good Afternoon' : 'Good Evening';
 
-  const filteredProducts = popularProducts?.filter(p => 
+  // Fall back to all products if popular filter returns nothing (e.g. not yet seeded with isPopular flag)
+  const sourceProducts = (popularProducts && popularProducts.length > 0) ? popularProducts : (allProducts || []);
+  const filteredProducts = sourceProducts.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -95,6 +122,85 @@ export default function Home() {
           </div>
         </Link>
       </div>
+
+      {/* ── DELIVERY OPPORTUNITIES ── */}
+      {jobs && jobs.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-lg text-slate-800 tracking-tight flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-indigo-500" /> Delivery Gigs
+            </h3>
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+              {jobs.length} Open
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jobs.slice(0, 3).map((job, idx) => {
+              const appliedApp = myApplications.find(a => a.jobId?._id === job._id);
+              
+              return (
+                <div key={idx} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
+                        <Briefcase className="h-5 w-5" />
+                      </div>
+                      {appliedApp && (
+                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${
+                          appliedApp.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          appliedApp.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {appliedApp.status.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-extrabold text-slate-800 line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors">{job.title}</h4>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400" /> {job.farmerId?.farmName || job.farmerId?.name || 'Local Farm'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {appliedApp ? (
+                    <div className="flex gap-2">
+                      {['pending', 'verified_by_admin'].includes(appliedApp.status) && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.delete(`/jobs/applications/${appliedApp._id}`);
+                              fetchGigData();
+                              toast.success('Application withdrawn successfully');
+                            } catch (err: any) {
+                              toast.error(err.response?.data?.message || 'Failed to withdraw application');
+                            }
+                          }}
+                          className="flex-1 bg-red-50 text-red-600 font-bold py-2.5 rounded-xl text-xs hover:bg-red-100 transition-colors"
+                        >
+                          Withdraw
+                        </button>
+                      )}
+                      <div className="flex-1 bg-slate-50 text-slate-400 font-bold py-2.5 rounded-xl text-xs text-center flex items-center justify-center border border-slate-100">
+                        Applied
+                      </div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setJobToApply(job)}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 transition-all shadow-sm flex justify-center items-center gap-1"
+                    >
+                      Apply Now
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── CATEGORIES ── */}
       <div className="space-y-4">
@@ -200,6 +306,45 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* ── JOB APPLICATION CONFIRMATION MODAL ── */}
+      {jobToApply && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Briefcase className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 text-center mb-2 tracking-tight">Confirm Application</h3>
+            <p className="text-sm text-slate-500 text-center mb-6 leading-relaxed">
+              You are about to apply for the <span className="font-bold text-slate-700">{jobToApply.title}</span> position at <span className="font-bold text-slate-700">{jobToApply.farmerId?.farmName || jobToApply.farmerId?.name || 'Local Farm'}</span>. The farm will contact you if your application is shortlisted.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setJobToApply(null)}
+                className="flex-1 px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl transition-colors active:scale-95"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  try {
+                    await api.post(`/jobs/${jobToApply._id}/apply`);
+                    fetchGigData();
+                    setJobToApply(null);
+                    toast.success('Application sent successfully! The farm will contact you.');
+                  } catch (err: any) {
+                    toast.error(err.response?.data?.message || 'Failed to apply. You might have already applied.');
+                    setJobToApply(null);
+                  }
+                }}
+                className="flex-[1.5] px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors active:scale-95 shadow-sm shadow-indigo-600/20"
+              >
+                Confirm Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

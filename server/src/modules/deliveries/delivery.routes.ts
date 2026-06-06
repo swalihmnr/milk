@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDeliveries, getDelivery, createDelivery, updateDeliveryStatus } from './delivery.controller';
+import { getDeliveries, getDelivery, createDelivery, updateDeliveryStatus, generateHandoverOtp } from './delivery.controller';
 import { validate } from '../../middleware/validate.middleware';
 import { createDeliverySchema, updateDeliverySchema } from './delivery.validation';
 import { protect } from '../../middleware/auth.middleware';
@@ -18,5 +18,10 @@ router.route('/')
 router.route('/:id')
   .get(getDelivery)
   .patch(validate(updateDeliverySchema), updateDeliveryStatus);
+
+router.route('/:id/status')
+  .patch(validate(updateDeliverySchema), updateDeliveryStatus);
+
+router.post('/:id/otp', generateHandoverOtp);
 
 export default router;

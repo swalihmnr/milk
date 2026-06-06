@@ -14,6 +14,7 @@ export const updateComplaintSchema = z.object({
   body: z.object({
     status: z.enum(['open', 'in_progress', 'resolved', 'closed']).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
-    assignedTo: z.string().optional()
+    assignedTo: z.string().optional(),
+    refundAmount: z.number().optional()
   })
 });

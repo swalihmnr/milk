@@ -1,13 +1,16 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Package, ShoppingBag, Truck, Settings, LogOut, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function AdminDashboardLayout() {
   const location = useLocation();
+  const { logout } = useAuth();
 
   const navItems = [
     { name: 'Overview', path: '/admin-app', icon: LayoutDashboard },
     { name: 'Vendors', path: '/admin-app/vendors', icon: ShieldCheck },
+    { name: 'Approvals', path: '/admin-app/approvals', icon: ShieldCheck },
     { name: 'Users', path: '/admin-app/users', icon: Users },
     { name: 'Products', path: '/admin-app/products', icon: Package },
     { name: 'Orders', path: '/admin-app/orders', icon: ShoppingBag },
@@ -44,7 +47,7 @@ export default function AdminDashboardLayout() {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <button className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">
+          <button onClick={logout} className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">
             <LogOut className="h-5 w-5" />
             Logout
           </button>

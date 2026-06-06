@@ -1,13 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Home, Package, ShoppingCart, Calendar, User, Droplets, Bell, LogOut } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCart } from '../../../contexts/CartContext';
+import { api } from '../../../lib/api';
+import toast from 'react-hot-toast';
 
 export default function UserAppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { cart } = useCart();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkNotifications = async () => {
+      try {
+        const res = await api.get('/notifications');
+        const allNotifs = res.data.data || [];
+        const unread = allNotifs.filter((n: any) => !n.readStatus);
+        
+        setUnreadCount(unread.length);
+
+        for (const notif of unread) {
+          toast(notif.message, {
+            duration: 10000,
+            icon: '📣',
+            position: 'top-center',
+            style: {
+              borderRadius: '16px',
+              background: '#0052cc',
+              color: '#fff',
+              fontWeight: 'bold',
+            },
+          });
+          // Mark as read immediately so it doesn't keep popping up
+          await api.patch(`/notifications/${notif._id}/read`);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications', err);
+      }
+    };
+
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 10000); // Poll every 10s
+    return () => clearInterval(interval);
+  }, [user]);
 
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -102,7 +141,9 @@ export default function UserAppLayout() {
         <div className="flex items-center gap-3">
           <button className="relative h-9 w-9 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-transform">
             <Bell className="h-4 w-4" />
-            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-red-500 rounded-full"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full animate-pulse"></span>
+            )}
           </button>
         </div>
       </header>

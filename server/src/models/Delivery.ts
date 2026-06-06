@@ -17,6 +17,9 @@ export interface IDelivery extends Document {
   isAutoConfirmed: boolean;
   missedReason?: string;
   notes?: string;
+  // OTP for in-person handover verification
+  handoverOtp?: string;
+  handoverOtpExpiresAt?: Date;
 }
 
 const DeliverySchema: Schema = new Schema({
@@ -35,7 +38,10 @@ const DeliverySchema: Schema = new Schema({
   complaintWindowEndsAt: { type: Date },
   isAutoConfirmed: { type: Boolean, default: false },
   missedReason: { type: String },
-  notes: { type: String }
+  notes: { type: String },
+  // OTP for in-person handover verification
+  handoverOtp: { type: String },
+  handoverOtpExpiresAt: { type: Date }
 }, {
   timestamps: true
 });

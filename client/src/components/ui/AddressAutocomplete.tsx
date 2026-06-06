@@ -266,5 +266,3 @@ export default function AddressAutocomplete({ onSelect, placeholder = 'Search fa
     </div>
   );
 }
-
-export type { ParsedAddress };

@@ -1,14 +1,15 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Map, List, Wallet, Bike } from 'lucide-react';
+import { Map, List, Wallet, Bike, Briefcase } from 'lucide-react';
 
 export default function DeliveryAppLayout() {
   const location = useLocation();
 
   const navItems = [
-    { name: 'Route Map', path: '/delivery-app', icon: Map },
-    { name: 'Deliveries', path: '/delivery-app/list', icon: List },
+    { name: 'Route Map', path: '/delivery-app/map', icon: Map },
+    { name: 'Deliveries', path: '/delivery-app', icon: List },
     { name: 'Earnings', path: '/delivery-app/earnings', icon: Wallet },
+    { name: 'Jobs', path: '/delivery-app/jobs', icon: Briefcase },
   ];
 
   return (

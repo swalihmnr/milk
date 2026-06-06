@@ -38,6 +38,9 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
         city: city || undefined,
         state: state || undefined,
         herdSize: herdSize ? Number(herdSize) : undefined,
+      }),
+      // Save location for both farmers and drivers
+      ...(['farmer', 'delivery', 'delivery_boy'].includes(role) && {
         lat: lat ? Number(lat) : undefined,
         lon: lon ? Number(lon) : undefined,
       })

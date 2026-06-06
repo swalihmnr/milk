@@ -41,15 +41,21 @@ export default function ProductList() {
       
       {/* ── HEADER ── */}
       <div className="sticky top-0 md:relative z-40 bg-white md:bg-transparent border-b md:border-b-0 border-slate-100 px-4 py-4 md:px-0 md:py-0 mb-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Link to="/my-app" className="h-10 w-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-all shadow-sm hover:shadow">
+        <div className="flex items-start gap-4 mb-4">
+          <Link to="/my-app/farmers" className="h-10 w-10 mt-1 shrink-0 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-all shadow-sm hover:shadow">
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
             <h1 className="font-black text-xl md:text-2xl text-slate-900 tracking-tight">
               {selectedVendor ? `${selectedVendor.companyName}'s Dairy` : 'Products Catalog'}
             </h1>
-            <p className="hidden md:block text-slate-400 text-xs mt-0.5">Explore premium farm dairy products</p>
+            {selectedVendor ? (
+              <p className="text-slate-500 text-xs font-medium mt-1 leading-relaxed max-w-sm">
+                {[selectedVendor.userId?.addressLine, selectedVendor.userId?.village, selectedVendor.userId?.city, selectedVendor.userId?.state].filter(Boolean).join(', ') || 'Local Farm'}
+              </p>
+            ) : (
+              <p className="hidden md:block text-slate-400 text-xs mt-0.5">Explore premium farm dairy products</p>
+            )}
           </div>
         </div>
 

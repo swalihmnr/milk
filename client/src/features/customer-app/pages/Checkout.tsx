@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, MapPin, CreditCard, Wallet, Banknote, ShieldCheck, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../../contexts/CartContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { api } from '../../../lib/api';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -12,14 +13,23 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [address, setAddress] = useState(user?.addressLine || 'Flat 402, Building A, Green Meadows, Pune, Maharashtra');
-  const [walletBalance, setWalletBalance] = useState(() => {
-    const val = localStorage.getItem('mockWalletBalance');
-    return val ? Number(val) : 500.00;
-  });
+  const [walletBalance, setWalletBalance] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handlePay = () => {
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const res = await api.get('/wallet/me');
+        setWalletBalance(res.data.balance || 0);
+      } catch (err) {
+        console.error('Failed to load wallet balance:', err);
+      }
+    };
+    fetchBalance();
+  }, []);
+
+  const handlePay = async () => {
     if (paymentMethod === 'wallet' && walletBalance < cartTotal) {
       alert('Insufficient Wallet Balance. Please top up your wallet or choose another payment method.');
       return;
@@ -27,20 +37,25 @@ export default function Checkout() {
 
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      if (paymentMethod === 'wallet') {
+        // Charge the backend wallet
+        await api.post('/wallet/pay', { amount: cartTotal });
+        setWalletBalance(prev => prev - cartTotal);
+      }
+
+      // Simulate payment processing for other mock gateways
+      if (paymentMethod !== 'wallet') {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
       setIsProcessing(false);
       setShowSuccess(true);
-      
-      // Deduct balance if wallet selected
-      if (paymentMethod === 'wallet') {
-        const newBalance = walletBalance - cartTotal;
-        setWalletBalance(newBalance);
-        localStorage.setItem('mockWalletBalance', newBalance.toString());
-      }
-      
       clearCart();
-    }, 2000);
+    } catch (err: any) {
+      setIsProcessing(false);
+      alert(err.response?.data?.message || err.message || 'Payment processing failed');
+    }
   };
 
   return (

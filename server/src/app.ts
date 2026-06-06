@@ -20,6 +20,9 @@ import analyticsRoutes from './modules/analytics/analytics.routes';
 import productRoutes from './modules/products/product.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import vendorRoutes from './modules/vendors/vendor.routes';
+import walletRoutes from './modules/wallet/wallet.routes';
+import adminRoutes from './modules/admin/admin.routes';
+import jobRoutes from './modules/jobs/jobs.routes';
 
 const app = express();
 
@@ -52,6 +55,20 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/vendors', vendorRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/jobs', jobRoutes);
+
+import { seedDatabase } from './utils/seed';
+
+app.get('/api/health/seed', async (req, res, next) => {
+  try {
+    await seedDatabase();
+    res.status(200).json({ status: 'success', message: 'Database seeded successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });

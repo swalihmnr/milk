@@ -68,7 +68,7 @@ interface Step1Data {
   name: string;
   phone: string;
   password: string;
-  role: 'farmer' | 'customer';
+  role: 'farmer' | 'customer' | 'delivery';
 }
 interface Step2Data {
   farmName: string;
@@ -89,7 +89,9 @@ export default function Signup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 1 state
-  const [s1, setS1] = useState<Step1Data>({ name: '', phone: '', password: '', role: 'farmer' });
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialRole = (searchParams.get('role') as 'farmer' | 'customer' | 'delivery') || 'farmer';
+  const [s1, setS1] = useState<Step1Data>({ name: '', phone: '', password: '', role: initialRole });
   const [showPass, setShowPass] = useState(false);
   const [s1Errors, setS1Errors] = useState<Partial<Step1Data>>({});
 
@@ -113,8 +115,8 @@ export default function Signup() {
 
   const handleStep1Next = () => {
     if (!validateStep1()) return;
-    if (s1.role === 'customer') {
-      // Customers skip step 2 — submit directly
+    if (s1.role === 'customer' || s1.role === 'delivery') {
+      // Customers and Drivers skip step 2 — submit directly
       handleFinalSubmit();
     } else {
       setStep(2);
@@ -165,7 +167,9 @@ export default function Signup() {
         }),
       };
       await api.post('/auth/signup', payload);
-      navigate(s1.role === 'customer' ? '/my-app' : '/dashboard');
+      if (s1.role === 'customer') navigate('/my-app');
+      else if (s1.role === 'delivery') navigate('/delivery-app');
+      else navigate('/dashboard');
     } catch (error: any) {
       setServerError(error?.response?.data?.message || 'Signup failed. Please try again.');
       setStep(1);
@@ -265,34 +269,40 @@ export default function Signup() {
           {step === 1 && (
             <div className="space-y-5">
               <div className="mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
-                <p className="text-gray-500 text-sm mt-1">Start managing your dairy operations today</p>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {s1.role === 'delivery' ? 'Delivery Boy Application' : 'Create your account'}
+                </h2>
+                <p className="text-gray-500 text-sm mt-1">
+                  {s1.role === 'delivery' ? 'Sign up to start receiving delivery jobs' : 'Start managing your dairy operations today'}
+                </p>
               </div>
 
-              {/* Role Selector */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-semibold text-gray-700">I am a</Label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl">
-                  {[
-                    { value: 'farmer' as const, label: '🌾 Dairy Farmer', desc: 'Manage my farm' },
-                    { value: 'customer' as const, label: '🛍️ Customer', desc: 'Buy milk daily' },
-                  ].map(({ value, label, desc }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setS1(p => ({ ...p, role: value }))}
-                      className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-150 text-center ${
-                        s1.role === value
-                          ? 'bg-white shadow-sm text-[#0052cc] border border-gray-200'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">{label}</span>
-                      <span className="text-[10px] text-gray-400 mt-0.5">{desc}</span>
-                    </button>
-                  ))}
+              {/* Role Selector (Hide if delivery) */}
+              {s1.role !== 'delivery' && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700">I am a</Label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl">
+                    {[
+                      { value: 'farmer' as const, label: '🌾 Farmer', desc: 'Manage my farm' },
+                      { value: 'customer' as const, label: '🛍️ Customer', desc: 'Buy milk daily' },
+                    ].map(({ value, label, desc }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setS1(p => ({ ...p, role: value }))}
+                        className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-150 text-center ${
+                          s1.role === value
+                            ? 'bg-white shadow-sm text-[#0052cc] border border-gray-200'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{label}</span>
+                        <span className="text-[10px] text-gray-400 mt-0.5">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Full Name */}
               <div className="space-y-1.5">
@@ -377,6 +387,26 @@ export default function Signup() {
               <Link to="/login" className="flex items-center justify-center w-full h-11 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:border-[#0052cc] hover:text-[#0052cc] transition-colors">
                 Sign in to existing account
               </Link>
+
+              {/* Delivery Boy CTA */}
+              <div className="mt-8 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
+                    <span className="text-xl">🛵</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Do you want to be a delivery boy?</p>
+                    <p className="text-xs text-gray-500">Sign up here to find nearby farm jobs.</p>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setS1(p => ({ ...p, role: 'delivery' }))}
+                  className="h-8 px-4 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg flex items-center justify-center transition-colors"
+                >
+                  Apply Now
+                </button>
+              </div>
             </div>
           )}
 

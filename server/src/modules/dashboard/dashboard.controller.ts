@@ -1,17 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import User from '../../models/User';
 import Delivery from '../../models/Delivery';
 import Product from '../../models/Product';
 import Vendor from '../../models/Vendor';
+import Role from '../../models/Role';
+import UserRole from '../../models/UserRole';
 
 // @desc    Get admin overview stats
 // @route   GET /api/dashboard/admin
 // @access  Private (Admin)
 export const getAdminStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const totalUsers = await User.countDocuments({ role: 'customer' });
+    const customerRole = await Role.findOne({ name: 'customer' });
+    let totalUsers = 0;
+    if (customerRole) {
+      totalUsers = await UserRole.countDocuments({ roleId: customerRole._id });
+    }
     const totalOrders = await Delivery.countDocuments();
-    const pendingVendors = await Vendor.find({ isApproved: false }).limit(5);
+    const pendingVendors = await Vendor.find({ approvalStatus: 'pending' }).limit(5).populate('userId', 'name phone email');
     
     // Mocking revenue for now since we don't have a generic "Order" or "Payment" model fully tracking all inflows yet
     const totalRevenue = 124500; 
@@ -35,9 +42,18 @@ export const getAdminStats = async (req: Request, res: Response, next: NextFunct
 export const getVendorStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { vendorId } = req.params;
+    const vIdString = Array.isArray(vendorId) ? vendorId[0] : vendorId;
+    let targetVendorId = vIdString;
 
-    const lowStockProducts = await Product.find({ vendorId, stockQuantity: { $lt: 10 } });
-    const activeProducts = await Product.countDocuments({ vendorId, isActive: true });
+    if (!vIdString || !mongoose.Types.ObjectId.isValid(vIdString)) {
+      const firstVendor = await Vendor.findOne();
+      if (firstVendor) {
+        targetVendorId = firstVendor._id.toString();
+      }
+    }
+
+    const lowStockProducts = await Product.find({ vendorId: targetVendorId, stockQuantity: { $lt: 10 } });
+    const activeProducts = await Product.countDocuments({ vendorId: targetVendorId, isActive: true });
     
     // Mocking recent orders
     const recentOrders = [

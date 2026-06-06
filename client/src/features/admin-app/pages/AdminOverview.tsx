@@ -1,8 +1,28 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { IndianRupee, Users, Package, TrendingUp, AlertCircle, CheckCircle2, RotateCcw, Loader2 } from 'lucide-react';
 import { useAdminStats } from '../../../hooks/useApi';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from 'recharts';
+
+const subscriptionGrowthData = [
+  { name: 'Week 1', subscriptions: 40, revenue: 15000 },
+  { name: 'Week 2', subscriptions: 75, revenue: 32000 },
+  { name: 'Week 3', subscriptions: 110, revenue: 48050 },
+  { name: 'Week 4', subscriptions: 168, revenue: 76000 },
+  { name: 'Week 5', subscriptions: 230, revenue: 98000 },
+  { name: 'Week 6', subscriptions: 310, revenue: 145000 },
+];
+
+const demandSupplyData = [
+  { name: 'Milk A2', demand: 450, supply: 420 },
+  { name: 'Buffalo', demand: 300, supply: 310 },
+  { name: 'Paneer', demand: 120, supply: 90 },
+  { name: 'Curd', demand: 200, supply: 210 },
+  { name: 'Ghee', demand: 80, supply: 75 },
+];
 
 export default function AdminOverview() {
+  const navigate = useNavigate();
   const { data, loading, error } = useAdminStats();
 
   const stats = [
@@ -43,6 +63,62 @@ export default function AdminOverview() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Analytics Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Subscription growth chart */}
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-base font-black text-gray-900">Subscription Growth</h2>
+              <p className="text-xs text-gray-500 font-bold">Sign-ups & Revenue trends over time</p>
+            </div>
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={subscriptionGrowthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorSubs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0052cc" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#0052cc" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorSubs)" name="Revenue (₹)" />
+                <Area type="monotone" dataKey="subscriptions" stroke="#0052cc" strokeWidth={3} fillOpacity={1} fill="url(#colorSubs)" name="Subscriptions" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Demand & Supply bar chart */}
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-base font-black text-gray-900">Demand vs Supply Index</h2>
+              <p className="text-xs text-gray-500 font-bold">Category replenishment volumes (liters/units)</p>
+            </div>
+            <Package className="h-5 w-5 text-[#0052cc]" />
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={demandSupplyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                <Legend iconType="circle" fontSize={11} />
+                <Bar dataKey="demand" fill="#0052cc" radius={[6, 6, 0, 0]} name="Customer Demand" />
+                <Bar dataKey="supply" fill="#10b981" radius={[6, 6, 0, 0]} name="Farmer Supply" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -110,7 +186,10 @@ export default function AdminOverview() {
             <p className="text-gray-500 font-medium text-sm">Failed deliveries today</p>
           </div>
           
-          <button className="w-full mt-6 bg-red-50 text-red-600 font-bold py-3 rounded-xl hover:bg-red-100 transition-colors">
+          <button 
+            onClick={() => navigate('/admin-app/deliveries')}
+            className="w-full mt-6 bg-red-50 text-red-600 font-bold py-3 rounded-xl hover:bg-red-100 transition-colors active:scale-95"
+          >
             Resolve Issues
           </button>
         </div>

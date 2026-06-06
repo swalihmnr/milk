@@ -1,24 +1,34 @@
-import React from 'react';
-import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, BarChart2, Tractor, Users, Truck, ReceiptText, Settings, LayoutGrid, PawPrint, UserCircle2, Droplet, UserCheck, CalendarClock, Package } from 'lucide-react';
+import { LogOut, Users, Truck, ReceiptText, LayoutGrid, PawPrint, UserCircle2, Droplet, UserCheck, CalendarClock, Stethoscope, Briefcase, MessageSquare } from 'lucide-react';
 
 export default function DashboardLayout() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading, logout } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#f8fafc] text-gray-450">
+        <span className="h-8 w-8 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin mb-4"></span>
+        <p className="font-bold text-sm">Verifying authorization...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'farmer' && user.role !== 'admin') {
+    if (user.role === 'customer') return <Navigate to="/my-app" replace />;
+    if (user.role === 'delivery') return <Navigate to="/delivery-app" replace />;
+    if (user.role === 'vendor') return <Navigate to="/vendor-app" replace />;
+    if (user.role === 'vet') return <Navigate to="/vet-app" replace />;
+    return <Navigate to="/login" replace />;
+  }
+
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '??';
-
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout failed', error);
-    }
-  };
 
   const location = useLocation();
   const currentPath = location.pathname;
@@ -75,6 +85,10 @@ export default function DashboardLayout() {
             <Truck className="h-5 w-5" /> Delivery Routes
           </Link>
 
+          <Link to="/dashboard/jobs" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/jobs' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+            <Briefcase className="h-5 w-5" /> Post Delivery Jobs
+          </Link>
+
           <Link to="/dashboard/delivery-boys" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/delivery-boys' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
             <UserCheck className="h-5 w-5" /> Delivery Boys
           </Link>
@@ -85,6 +99,12 @@ export default function DashboardLayout() {
             <ReceiptText className="h-5 w-5" /> Billing & Invoices
           </Link>
 
+          <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-6">Settings</p>
+
+          <Link to="/dashboard/support" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/support' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+            <MessageSquare className="h-5 w-5" /> Customer Support
+          </Link>
+
           <Link to="/dashboard/profile" className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${currentPath === '/dashboard/profile' ? 'bg-[#0052cc] text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
             <UserCircle2 className="h-5 w-5" /> Profile Settings
           </Link>
@@ -92,7 +112,7 @@ export default function DashboardLayout() {
         
         <div className="p-6 mt-auto border-t border-gray-100">
           <button 
-            onClick={handleLogout}
+            onClick={logout}
             className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
           >
             <LogOut className="h-5 w-5" /> Sign Out

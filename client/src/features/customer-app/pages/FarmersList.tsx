@@ -1,10 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, MapPin, Phone, Star, Search, Loader2, Award, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useVendors } from '../../../hooks/useApi';
 
 export default function FarmersList() {
-  const { data: vendors, loading, error } = useVendors();
+  const [coords, setCoords] = useState<{ lat?: number; lon?: number }>({});
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.warn('Geolocation failed, falling back to Pune city center.', error);
+          setCoords({
+            lat: 18.5280,
+            lon: 73.8730,
+          });
+        }
+      );
+    } else {
+      setCoords({
+        lat: 18.5280,
+        lon: 73.8730,
+      });
+    }
+  }, []);
+
+  const { data: vendors, loading, error } = useVendors(coords);
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredVendors = vendors?.filter(vendor => {
@@ -78,13 +105,20 @@ export default function FarmersList() {
                         <span className="text-[10px] font-black text-amber-700">4.9</span>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 text-slate-400" /> 
-                      {vendor.userId?.city || 'Local Area'}
+                    <p className="text-xs text-slate-500 font-medium flex items-start gap-1 mt-1">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" /> 
+                      <span className="line-clamp-2 leading-relaxed">
+                        {[vendor.userId?.addressLine, vendor.userId?.village, vendor.userId?.city, vendor.userId?.state].filter(Boolean).join(', ') || 'Local Area'}
+                        {vendor.distance !== undefined && vendor.distance !== null && (
+                          <span className="text-blue-600 font-black ml-1 whitespace-nowrap">• {vendor.distance} km away</span>
+                        )}
+                      </span>
                     </p>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <Award className="h-3 w-3" /> Verified Partner
-                    </span>
+                    <div className="pt-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                        <Award className="h-3 w-3" /> Verified Partner
+                      </span>
+                    </div>
                   </div>
                 </div>
 

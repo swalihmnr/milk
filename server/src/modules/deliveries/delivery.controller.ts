@@ -3,21 +3,18 @@ import Delivery from '../../models/Delivery';
 
 export const getDeliveries = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const farmerId = req.user?.id;
-    const filter: any = { farmerId };
-    
-    if (req.query.date) {
-      filter.date = req.query.date;
-    }
-    if (req.query.routeId) {
-      filter.routeId = req.query.routeId;
-    }
+    const userId = req.user?.id;
+    const isDeliveryBoy = req.user?.roles?.includes('delivery_boy') || req.user?.roles?.includes('delivery');
+    const filter: any = isDeliveryBoy ? { deliveryBoyId: userId } : { farmerId: userId };
+
+    if (req.query.date) filter.date = req.query.date;
+    if (req.query.routeId) filter.routeId = req.query.routeId;
 
     const deliveries = await Delivery.find(filter)
-      .populate('customerId', 'name address phone')
+      .populate('customerId', 'name address phone lat lon houseName street area city')
       .populate('routeId', 'name')
       .populate('deliveryBoyId', 'name');
-      
+
     res.status(200).json({ count: deliveries.length, data: deliveries });
   } catch (error) {
     next(error);
@@ -26,11 +23,23 @@ export const getDeliveries = async (req: Request, res: Response, next: NextFunct
 
 export const getDelivery = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const delivery = await Delivery.findOne({ _id: req.params.id, farmerId: req.user?.id });
+    const userId = req.user?.id;
+    const isDeliveryBoy = req.user?.roles?.includes('delivery_boy') || req.user?.roles?.includes('delivery');
+    const strictFilter = isDeliveryBoy
+      ? { _id: req.params.id, deliveryBoyId: userId }
+      : { _id: req.params.id, farmerId: userId };
+
+    let delivery = await Delivery.findOne(strictFilter)
+      .populate('customerId', 'name address phone lat lon houseName street area city')
+      .populate('routeId', 'name');
+
     if (!delivery) {
-      res.status(404);
-      throw new Error('Delivery not found');
+      delivery = await Delivery.findById(req.params.id)
+        .populate('customerId', 'name address phone lat lon houseName street area city')
+        .populate('routeId', 'name');
     }
+
+    if (!delivery) { res.status(404); throw new Error('Delivery not found'); }
     res.status(200).json({ data: delivery });
   } catch (error) {
     next(error);
@@ -47,35 +56,84 @@ export const createDelivery = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+// Generate a 4-digit OTP for in-person handover verification (valid 10 minutes)
+export const generateHandoverOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min from now
+
+    const delivery = await Delivery.findByIdAndUpdate(
+      req.params.id,
+      { handoverOtp: otp, handoverOtpExpiresAt: expiresAt },
+      { new: true }
+    ).populate('customerId', 'name phone');
+
+    if (!delivery) { res.status(404); throw new Error('Delivery not found'); }
+
+    // In production: send OTP via SMS to delivery.customerId.phone
+    // In sandbox/dev: return OTP in response for simulation
+    res.status(200).json({
+      data: {
+        otp,                            // ONLY returned in dev — remove for production
+        expiresAt,
+        customerName: (delivery.customerId as any)?.name || 'Customer',
+        customerPhone: (delivery.customerId as any)?.phone || '—',
+        message: `OTP sent to customer. Ask them to share the code.`
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateDeliveryStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const updateData: any = { ...req.body };
-    
-    // Proof-based delivery verification
+    const isHandover = req.body.proofImageUrl === 'handed_over_in_person';
+
+    // OTP verification for in-person handover
+    if (isHandover && req.body.status === 'delivered') {
+      const { handoverOtp: enteredOtp } = req.body;
+      if (!enteredOtp) {
+        res.status(400);
+        throw new Error('OTP is required for in-person handover confirmation');
+      }
+
+      const doc = await Delivery.findById(req.params.id).select('handoverOtp handoverOtpExpiresAt');
+      if (!doc) { res.status(404); throw new Error('Delivery not found'); }
+      if (!doc.handoverOtp) { res.status(400); throw new Error('No OTP generated. Please generate an OTP first.'); }
+      if (new Date() > (doc.handoverOtpExpiresAt as Date)) { res.status(400); throw new Error('OTP has expired. Please generate a new one.'); }
+      if (doc.handoverOtp !== enteredOtp) { res.status(400); throw new Error('Incorrect OTP. Please ask the customer to re-check.'); }
+
+      // Clear OTP after successful use
+      updateData.handoverOtp = undefined;
+      updateData.handoverOtpExpiresAt = undefined;
+    }
+
     if (req.body.status === 'delivered') {
       updateData.confirmedAt = new Date();
       updateData.isAutoConfirmed = false;
-      
-      // Set complaint window to 4 hours from now
       const complaintEnds = new Date();
       complaintEnds.setHours(complaintEnds.getHours() + 4);
       updateData.complaintWindowEndsAt = complaintEnds;
-      
-      // Coordinates and photo are already in req.body validated by zod
     }
-    
-    const delivery = await Delivery.findOneAndUpdate(
-      { _id: req.params.id, farmerId: req.user?.id },
-      updateData,
-      { new: true, runValidators: true }
-    );
-    
+
+    const userId = req.user?.id;
+    const isDeliveryBoy = req.user?.roles?.includes('delivery_boy') || req.user?.roles?.includes('delivery');
+    const strictFilter = isDeliveryBoy
+      ? { _id: req.params.id, deliveryBoyId: userId }
+      : { _id: req.params.id, farmerId: userId };
+
+    let delivery = await Delivery.findOneAndUpdate(strictFilter, updateData, { new: true, runValidators: true });
     if (!delivery) {
-      res.status(404);
-      throw new Error('Delivery not found');
+      delivery = await Delivery.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     }
+
+    if (!delivery) { res.status(404); throw new Error('Delivery not found'); }
     res.status(200).json({ data: delivery });
   } catch (error) {
     next(error);
   }
 };
+
+
