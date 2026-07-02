@@ -21,4 +21,5 @@ router.route('/:id')
     .patch((0, validate_middleware_1.validate)(delivery_validation_1.updateDeliverySchema), delivery_controller_1.updateDeliveryStatus);
 router.route('/:id/status')
     .patch((0, validate_middleware_1.validate)(delivery_validation_1.updateDeliverySchema), delivery_controller_1.updateDeliveryStatus);
+router.post('/:id/otp', delivery_controller_1.generateHandoverOtp);
 exports.default = router;

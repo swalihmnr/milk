@@ -21,7 +21,7 @@ function deg2rad(deg) {
 }
 const getApprovedVendors = async (req, res) => {
     try {
-        const vendors = await Vendor_1.default.find({ approvalStatus: 'approved' }).populate('userId', 'name phone email farmName village city lat lon');
+        const vendors = await Vendor_1.default.find({ approvalStatus: 'approved' }).populate('userId', 'name phone email farmName addressLine village city state lat lon');
         const { lat, lon } = req.query;
         let result = vendors.map((v) => {
             const vendorObj = v.toObject ? v.toObject() : v;

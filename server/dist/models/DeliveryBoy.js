@@ -40,6 +40,7 @@ const DeliveryBoySchema = new mongoose_1.Schema({
     vehicleType: { type: String, required: true },
     licenseNumber: { type: String },
     isActive: { type: Boolean, default: true },
+    isVerified: { type: Boolean, default: false },
     currentLat: { type: Number },
     currentLon: { type: Number },
     totalDeliveries: { type: Number, default: 0 },

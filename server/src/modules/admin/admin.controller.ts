@@ -5,6 +5,7 @@ import UserRole from '../../models/UserRole';
 import Role from '../../models/Role';
 import Invoice from '../../models/Invoice';
 import Delivery from '../../models/Delivery';
+import DeliveryBoy from '../../models/DeliveryBoy';
 
 // @desc    Get all platform vendors
 // @route   GET /api/admin/vendors
@@ -104,6 +105,44 @@ export const getAllDeliveries = async (req: Request, res: Response, next: NextFu
       .populate('deliveryBoyId', 'name phone')
       .sort('-createdAt');
     res.status(200).json({ success: true, data: deliveries });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all platform delivery boys
+// @route   GET /api/admin/delivery-boys
+// @access  Private (Admin)
+export const getDeliveryBoys = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const deliveryBoys = await DeliveryBoy.find()
+      .populate('userId', 'name phone email status')
+      .populate('vendorId', 'name farmName')
+      .sort('-createdAt');
+    res.status(200).json({ success: true, data: deliveryBoys });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verify delivery boy
+// @route   PATCH /api/admin/delivery-boys/:id/verify
+// @access  Private (Admin)
+export const verifyDeliveryBoy = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { isVerified } = req.body;
+    const deliveryBoy = await DeliveryBoy.findByIdAndUpdate(
+      req.params.id,
+      { isVerified },
+      { new: true }
+    ).populate('userId', 'name phone email status');
+
+    if (!deliveryBoy) {
+      res.status(404);
+      throw new Error('Delivery boy not found');
+    }
+
+    res.status(200).json({ success: true, data: deliveryBoy });
   } catch (error) {
     next(error);
   }

@@ -21,14 +21,7 @@ export const updateDeliverySchema = z.object({
     notes: z.string().optional(),
     proofImageUrl: z.string().optional(),
     deliveryLat: z.number().optional(),
-    deliveryLon: z.number().optional()
-  }).refine((data) => {
-    if (data.status === 'delivered') {
-      return !!data.proofImageUrl && data.deliveryLat !== undefined && data.deliveryLon !== undefined;
-    }
-    return true;
-  }, {
-    message: "proofImageUrl, deliveryLat, and deliveryLon are required when marking as delivered",
-    path: ["status"]
+    deliveryLon: z.number().optional(),
+    handoverOtp: z.string().optional()
   })
 });

@@ -10,6 +10,8 @@ const rbac_middleware_1 = require("../../middleware/rbac.middleware");
 const router = express_1.default.Router();
 router.use(auth_middleware_1.protect);
 router.use((0, rbac_middleware_1.authorize)('farmer', 'admin'));
+router.get('/search', deliveryboy_controller_1.searchDeliveryBoys);
+router.patch('/:id/assign', deliveryboy_controller_1.assignDeliveryBoy);
 router.route('/')
     .get(deliveryboy_controller_1.getDeliveryBoys)
     .post(deliveryboy_controller_1.registerDeliveryBoy);

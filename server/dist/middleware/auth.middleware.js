@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.protect = void 0;
+exports.restrictTo = exports.protect = void 0;
 const jwt_1 = require("../utils/jwt");
 const User_1 = __importDefault(require("../models/User"));
 const protect = async (req, res, next) => {
@@ -65,7 +65,8 @@ const protect = async (req, res, next) => {
                 // Import Role + UserRole inline to avoid circular deps
                 const Role = (await Promise.resolve().then(() => __importStar(require('../models/Role')))).default;
                 const UserRole = (await Promise.resolve().then(() => __importStar(require('../models/UserRole')))).default;
-                const roleDoc = await Role.findOne({ name: role });
+                const dbRole = role === 'vendor' ? 'farmer' : (role === 'delivery' ? 'delivery_boy' : role);
+                const roleDoc = await Role.findOne({ name: dbRole });
                 if (roleDoc) {
                     const userRole = await UserRole.findOne({ roleId: roleDoc._id });
                     if (userRole)
@@ -97,3 +98,13 @@ const protect = async (req, res, next) => {
     }
 };
 exports.protect = protect;
+const restrictTo = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user || !req.user.roles || !req.user.roles.some((r) => roles.includes(r))) {
+            res.status(403);
+            return next(new Error('You do not have permission to perform this action'));
+        }
+        next();
+    };
+};
+exports.restrictTo = restrictTo;

@@ -22,14 +22,7 @@ exports.updateDeliverySchema = zod_1.z.object({
         notes: zod_1.z.string().optional(),
         proofImageUrl: zod_1.z.string().optional(),
         deliveryLat: zod_1.z.number().optional(),
-        deliveryLon: zod_1.z.number().optional()
-    }).refine((data) => {
-        if (data.status === 'delivered') {
-            return !!data.proofImageUrl && data.deliveryLat !== undefined && data.deliveryLon !== undefined;
-        }
-        return true;
-    }, {
-        message: "proofImageUrl, deliveryLat, and deliveryLon are required when marking as delivered",
-        path: ["status"]
+        deliveryLon: zod_1.z.number().optional(),
+        handoverOtp: zod_1.z.string().optional()
     })
 });

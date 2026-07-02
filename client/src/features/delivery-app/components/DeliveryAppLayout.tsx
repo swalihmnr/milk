@@ -1,9 +1,11 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Map, List, Wallet, Bike, Briefcase } from 'lucide-react';
+import { Map, List, Wallet, Bike, Briefcase, ShieldAlert, LogOut } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function DeliveryAppLayout() {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { name: 'Route Map', path: '/delivery-app/map', icon: Map },
@@ -11,6 +13,50 @@ export default function DeliveryAppLayout() {
     { name: 'Earnings', path: '/delivery-app/earnings', icon: Wallet },
     { name: 'Jobs', path: '/delivery-app/jobs', icon: Briefcase },
   ];
+
+  if (user && (user.role === 'delivery' || user.role === 'delivery_boy') && user.isVerified === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+          {/* Subtle gradient glowing effect */}
+          <div className="absolute -top-12 -left-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10 flex flex-col items-center">
+            {/* Pulsing Alert Icon */}
+            <div className="h-20 w-20 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-6 border border-amber-500/20 shadow-lg shadow-amber-500/5 animate-pulse">
+              <ShieldAlert className="h-10 w-10" />
+            </div>
+
+            <h1 className="text-2xl font-black text-white tracking-tight mb-2">
+              Verification Pending
+            </h1>
+            <p className="text-amber-500 font-bold uppercase tracking-widest text-[10px] mb-6">
+              Awaiting Admin Approval
+            </p>
+
+            <div className="bg-slate-950/60 rounded-2xl p-5 mb-8 text-left border border-slate-800/80">
+              <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                Hello <span className="font-extrabold text-white">{user.name}</span>, your account has been registered successfully.
+              </p>
+              <div className="h-px bg-slate-800 w-full my-3"></div>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Before you can access delivery jobs, routes, and earnings, an administrator must verify your credentials and license details. This process typically takes less than 24 hours.
+              </p>
+            </div>
+
+            <button 
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all active:scale-95 border border-slate-700"
+            >
+              <LogOut className="h-5 w-5" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col relative pb-20 md:pb-0">

@@ -5,6 +5,7 @@ import User from '../../models/User';
 import Notification from '../../models/Notification';
 import Role from '../../models/Role';
 import UserRole from '../../models/UserRole';
+import DeliveryBoy from '../../models/DeliveryBoy';
 import mongoose from 'mongoose';
 
 // POST /api/jobs (Farmer creates a job)
@@ -263,8 +264,21 @@ export const acceptApplication = async (req: Request, res: Response, next: NextF
     job.status = 'filled';
     await job.save();
 
-    // NOTE: Here you would typically add the driver to the farmer's list of assigned delivery boys 
-    // depending on your platform's schema (e.g. creating a relationship in a FarmDeliveryBoy model).
+    // Link the driver to the farmer's DeliveryBoy records and verify them
+    let deliveryBoy = await DeliveryBoy.findOne({ userId: application.driverId });
+    if (!deliveryBoy) {
+      deliveryBoy = await DeliveryBoy.create({
+        userId: application.driverId,
+        vendorId: job.farmerId,
+        vehicleType: 'Bicycle',
+        isActive: true,
+        isVerified: true
+      });
+    } else {
+      deliveryBoy.vendorId = job.farmerId;
+      deliveryBoy.isVerified = true;
+      await deliveryBoy.save();
+    }
 
     res.status(200).json({ success: true, data: application });
   } catch (error: any) {

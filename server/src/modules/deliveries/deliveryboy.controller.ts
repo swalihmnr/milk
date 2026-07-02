@@ -102,10 +102,8 @@ export const registerDeliveryBoy = async (req: Request, res: Response, next: Nex
   }
 };
 
-/**
- * PATCH /api/delivery-boys/:id/toggle
- * Activate or deactivate a delivery boy
- */
+// @desc    Toggle active status
+// @route   PATCH /api/delivery-boys/:id/toggle
 export const toggleDeliveryBoy = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const farmerId = req.user?.id;
@@ -124,22 +122,129 @@ export const toggleDeliveryBoy = async (req: Request, res: Response, next: NextF
   }
 };
 
-/**
- * DELETE /api/delivery-boys/:id
- * Removes a delivery boy (DeliveryBoy doc + User account)
- */
+// @desc    Unassign delivery boy (sets vendorId to null instead of deleting user)
+// @route   DELETE /api/delivery-boys/:id
 export const removeDeliveryBoy = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const farmerId = req.user?.id;
-    const boy = await DeliveryBoy.findOneAndDelete({ _id: req.params.id, vendorId: farmerId });
+    const boy = await DeliveryBoy.findOne({ _id: req.params.id, vendorId: farmerId });
     if (!boy) {
       res.status(404);
       throw new Error('Delivery boy not found');
     }
-    // Remove user account and role mapping
-    await UserRole.deleteMany({ userId: boy.userId });
-    await User.findByIdAndDelete(boy.userId);
+    
+    boy.vendorId = null as any;
+    boy.isActive = false;
+    await boy.save();
+    
     res.status(200).json({ data: {} });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Search all delivery boys by name or phone
+// @route   GET /api/delivery-boys/search
+export const searchDeliveryBoys = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(200).json({ data: [] });
+    }
+
+    // Find all users with a delivery role
+    const deliveryRoles = await Role.find({ name: { $in: ['delivery', 'delivery_boy'] } });
+    const roleIds = deliveryRoles.map(r => r._id);
+    const userRoles = await UserRole.find({ roleId: { $in: roleIds } });
+    const userIds = userRoles.map(ur => ur.userId);
+
+    const users = await User.find({
+      _id: { $in: userIds },
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { phone: { $regex: query, $options: 'i' } }
+      ]
+    } as any).select('name phone email status');
+
+    const matchedUserIds = users.map(u => u._id);
+    const boys = await DeliveryBoy.find({ userId: { $in: matchedUserIds } });
+
+    const data = users.map((u: any) => {
+      const dboy = boys.find(b => b.userId.toString() === u._id.toString());
+      return {
+        _id: dboy?._id,
+        userId: u._id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        vehicleType: dboy?.vehicleType || 'Bicycle',
+        licenseNumber: dboy?.licenseNumber,
+        isVerified: dboy?.isVerified || false,
+        isActive: dboy?.isActive || false,
+        vendorId: dboy?.vendorId
+      };
+    });
+
+    res.status(200).json({ data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Assign a registered delivery boy to a farmer
+// @route   PATCH /api/delivery-boys/:id/assign
+export const assignDeliveryBoy = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const farmerId = req.user?.id;
+    let boy = await DeliveryBoy.findById(req.params.id);
+    if (!boy) {
+      // Check if it's a User ID instead
+      const user = await User.findById(req.params.id);
+      if (user) {
+        boy = await DeliveryBoy.findOne({ userId: user._id });
+        if (!boy) {
+          boy = await DeliveryBoy.create({
+            userId: user._id,
+            vendorId: farmerId,
+            vehicleType: 'Bicycle',
+            isActive: true,
+            isVerified: true
+          });
+        } else {
+          boy.vendorId = farmerId as any;
+          boy.isVerified = true;
+          boy.isActive = true;
+          await boy.save();
+        }
+      } else {
+        res.status(404);
+        throw new Error('Delivery boy not found');
+      }
+    } else {
+      boy.vendorId = farmerId as any;
+      boy.isVerified = true;
+      boy.isActive = true;
+      await boy.save();
+    }
+
+    const user = await User.findById(boy.userId).select('name phone email status');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        _id: boy._id,
+        userId: boy.userId,
+        name: user?.name,
+        phone: user?.phone,
+        vehicleType: boy.vehicleType,
+        licenseNumber: boy.licenseNumber,
+        isActive: boy.isActive,
+        isVerified: boy.isVerified,
+        totalDeliveries: boy.totalDeliveries,
+        rating: boy.rating,
+        createdAt: boy.createdAt,
+      }
+    });
   } catch (error) {
     next(error);
   }

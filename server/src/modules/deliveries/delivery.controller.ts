@@ -9,6 +9,7 @@ export const getDeliveries = async (req: Request, res: Response, next: NextFunct
 
     if (req.query.date) filter.date = req.query.date;
     if (req.query.routeId) filter.routeId = req.query.routeId;
+    if (req.query.customerId) filter.customerId = req.query.customerId;
 
     const deliveries = await Delivery.find(filter)
       .populate('customerId', 'name address phone lat lon houseName street area city')

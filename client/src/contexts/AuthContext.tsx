@@ -7,7 +7,8 @@ interface User {
   name: string;
   email?: string;
   phone: string;
-  role: 'customer' | 'admin' | 'vendor' | 'delivery' | 'vet';
+  role: 'customer' | 'admin' | 'vendor' | 'delivery' | 'delivery_boy' | 'vet' | 'farmer';
+  roles?: string[];
   vendorId?: string;
   farmName?: string;
   addressLine?: string;
@@ -17,6 +18,7 @@ interface User {
   herdSize?: number;
   lat?: number;
   lon?: number;
+  isVerified?: boolean;
 }
 
 interface AuthContextType {

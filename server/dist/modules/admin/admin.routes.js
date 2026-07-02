@@ -15,4 +15,6 @@ router.get('/vendors', admin_controller_1.getVendors);
 router.patch('/vendors/:id/status', admin_controller_1.updateVendorStatus);
 router.get('/invoices', admin_controller_1.getAllInvoices);
 router.get('/deliveries', admin_controller_1.getAllDeliveries);
+router.get('/delivery-boys', admin_controller_1.getDeliveryBoys);
+router.patch('/delivery-boys/:id/verify', admin_controller_1.verifyDeliveryBoy);
 exports.default = router;

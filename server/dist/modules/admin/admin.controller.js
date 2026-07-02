@@ -3,12 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllDeliveries = exports.getAllInvoices = exports.getUsers = exports.updateVendorStatus = exports.getVendors = void 0;
+exports.verifyDeliveryBoy = exports.getDeliveryBoys = exports.getAllDeliveries = exports.getAllInvoices = exports.getUsers = exports.updateVendorStatus = exports.getVendors = void 0;
 const User_1 = __importDefault(require("../../models/User"));
 const Vendor_1 = __importDefault(require("../../models/Vendor"));
 const UserRole_1 = __importDefault(require("../../models/UserRole"));
 const Invoice_1 = __importDefault(require("../../models/Invoice"));
 const Delivery_1 = __importDefault(require("../../models/Delivery"));
+const DeliveryBoy_1 = __importDefault(require("../../models/DeliveryBoy"));
 // @desc    Get all platform vendors
 // @route   GET /api/admin/vendors
 // @access  Private (Admin)
@@ -104,3 +105,37 @@ const getAllDeliveries = async (req, res, next) => {
     }
 };
 exports.getAllDeliveries = getAllDeliveries;
+// @desc    Get all platform delivery boys
+// @route   GET /api/admin/delivery-boys
+// @access  Private (Admin)
+const getDeliveryBoys = async (req, res, next) => {
+    try {
+        const deliveryBoys = await DeliveryBoy_1.default.find()
+            .populate('userId', 'name phone email status')
+            .populate('vendorId', 'name farmName')
+            .sort('-createdAt');
+        res.status(200).json({ success: true, data: deliveryBoys });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getDeliveryBoys = getDeliveryBoys;
+// @desc    Verify delivery boy
+// @route   PATCH /api/admin/delivery-boys/:id/verify
+// @access  Private (Admin)
+const verifyDeliveryBoy = async (req, res, next) => {
+    try {
+        const { isVerified } = req.body;
+        const deliveryBoy = await DeliveryBoy_1.default.findByIdAndUpdate(req.params.id, { isVerified }, { new: true }).populate('userId', 'name phone email status');
+        if (!deliveryBoy) {
+            res.status(404);
+            throw new Error('Delivery boy not found');
+        }
+        res.status(200).json({ success: true, data: deliveryBoy });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.verifyDeliveryBoy = verifyDeliveryBoy;

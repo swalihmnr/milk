@@ -16,6 +16,9 @@ export default function DeliveryConfirmation() {
     valid: true,
     distanceText: 'Validating distance...'
   });
+  const [otpSent, setOtpSent] = useState(false);
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
 
   const fetchDelivery = async () => {
     try {
@@ -132,7 +135,9 @@ export default function DeliveryConfirmation() {
     );
   }
 
-  const canSubmit = deliveryMode === 'handover' || photoTaken;
+  const canSubmit = deliveryMode === 'handover' 
+    ? (otpSent && enteredOtp === generatedOtp) 
+    : photoTaken;
 
   return (
     <div className="bg-slate-900 min-h-screen text-white flex flex-col">

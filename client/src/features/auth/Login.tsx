@@ -130,10 +130,16 @@ export default function Login() {
   const onSubmit = async (data: LoginForm) => {
     setServerError('');
     try {
-      await api.post('/auth/login', { ...data, role: selectedRole });
-      // Redirect based on role
-      if (selectedRole === 'customer') navigate('/my-app');
-      else if (selectedRole === 'delivery') navigate('/delivery-app');
+      const response = await api.post('/auth/login', { ...data, role: selectedRole });
+      const loggedInUser = response.data.user;
+      login(loggedInUser);
+      
+      const role = loggedInUser.roles?.[0] || loggedInUser.role;
+      if (role === 'customer') navigate('/my-app');
+      else if (role === 'delivery' || role === 'delivery_boy') navigate('/delivery-app');
+      else if (role === 'vendor') navigate('/vendor-app');
+      else if (role === 'vet') navigate('/vet-app');
+      else if (role === 'admin') navigate('/admin-app');
       else navigate('/dashboard');
     } catch (error: any) {
       setServerError(error?.response?.data?.message || 'Invalid credentials. Please try again.');

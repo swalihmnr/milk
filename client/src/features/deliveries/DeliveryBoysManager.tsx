@@ -25,11 +25,43 @@ const VEHICLE_TYPES = ['Bicycle', 'Motorcycle', 'Scooter', 'Auto', 'Car', 'Van']
 
 // ─── Register Modal ──────────────────────────────────────────────────────────
 function RegisterModal({ onClose, onRegistered }: { onClose: () => void; onRegistered: (boy: DeliveryBoy) => void }) {
+  const [activeTab, setActiveTab] = useState<'search' | 'create'>('search');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
   const [form, setForm] = useState({ name: '', phone: '', password: '', vehicleType: 'Motorcycle', licenseNumber: '' });
   const [showPass, setShowPass] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      toast.error('Enter a name or phone number to search');
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await api.get(`/delivery-boys/search?query=${encodeURIComponent(searchQuery)}`);
+      setSearchResults(res.data.data);
+    } catch {
+      toast.error('Failed to search delivery boys');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleAssign = async (result: any) => {
+    try {
+      const res = await api.patch(`/delivery-boys/${result._id || result.userId}/assign`);
+      toast.success(`${result.name} assigned to your roster!`);
+      onRegistered(res.data.data);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Assignment failed');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.phone.trim() || !form.password.trim()) {
@@ -55,75 +87,157 @@ function RegisterModal({ onClose, onRegistered }: { onClose: () => void; onRegis
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 overflow-hidden">
 
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-black text-gray-900">Register Delivery Boy</h2>
-            <p className="text-sm text-gray-500 mt-1">Creates an account they can log in with</p>
+            <h2 className="text-xl font-black text-gray-900">Add Delivery Boy</h2>
+            <p className="text-sm text-gray-500 mt-1">Assign an existing driver or register a new one</p>
           </div>
           <button onClick={onClose} className="h-8 w-8 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600">✕</button>
         </div>
 
-        {/* Form */}
-        <div className="p-6 space-y-4 overflow-y-auto max-h-[65vh]">
-          <div>
-            <label className={labelCls}>Full Name *</label>
-            <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Ramesh Kumar" className={inputCls} autoFocus />
-          </div>
-          <div>
-            <label className={labelCls}>Phone Number *</label>
-            <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="10-digit mobile number" className={inputCls} type="tel" maxLength={15} />
-          </div>
-          <div>
-            <label className={labelCls}>Login Password *</label>
-            <div className="relative">
-              <input
-                value={form.password}
-                onChange={e => set('password', e.target.value)}
-                placeholder="Min 6 characters"
-                type={showPass ? 'text' : 'password'}
-                className={inputCls + ' pr-12'}
-              />
-              <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-1.5">They'll use this to log in to the delivery app</p>
-          </div>
-          <div>
-            <label className={labelCls}>Vehicle Type *</label>
-            <select value={form.vehicleType} onChange={e => set('vehicleType', e.target.value)}
-              className={inputCls + ' cursor-pointer'}>
-              {VEHICLE_TYPES.map(v => <option key={v}>{v}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>License Number <span className="text-gray-300 font-medium normal-case">(optional)</span></label>
-            <input value={form.licenseNumber} onChange={e => set('licenseNumber', e.target.value)} placeholder="DL-XXXXXXXXXX" className={inputCls} />
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100 bg-gray-50/50">
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`flex-1 py-3 text-center text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'search' ? 'border-[#0052cc] text-[#0052cc] bg-white' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Search Registered
+          </button>
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-3 text-center text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'create' ? 'border-[#0052cc] text-[#0052cc] bg-white' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Create Account
+          </button>
+        </div>
 
-          {/* Info box */}
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
-            <UserCheck className="h-5 w-5 text-[#0052cc] shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-700">
-              <p className="font-bold mb-0.5">What happens after registration?</p>
-              <ul className="text-xs space-y-0.5 text-blue-600 list-disc list-inside">
-                <li>A login account is created for them</li>
-                <li>They can log in at <span className="font-bold">/login</span></li>
-                <li>You can assign them to routes immediately</li>
-              </ul>
+        {/* Content */}
+        <div className="p-6 space-y-4 overflow-y-auto max-h-[55vh]">
+          {activeTab === 'search' ? (
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Search by Name or Phone</label>
+                <div className="flex gap-2">
+                  <input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Enter name or phone..."
+                    className={inputCls}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  />
+                  <Button
+                    onClick={handleSearch}
+                    disabled={searching}
+                    className="bg-[#0052cc] hover:bg-[#003d99] text-white px-4 rounded-2xl font-bold h-12"
+                  >
+                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 mt-4 max-h-[30vh] overflow-y-auto">
+                {searchResults.length > 0 ? (
+                  searchResults.map((result: any) => (
+                    <div key={result.userId} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl">
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">{result.name}</p>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">{result.phone} • {result.vehicleType}</p>
+                      </div>
+                      {result.vendorId ? (
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-2.5 py-1 rounded-full">
+                          Assigned
+                        </span>
+                      ) : (
+                        <Button
+                          onClick={() => handleAssign(result)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-1.5 rounded-xl h-8 shadow-sm"
+                        >
+                          Assign
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : searchQuery && !searching ? (
+                  <p className="text-center text-gray-400 text-xs py-8 font-bold">No registered delivery boys found</p>
+                ) : (
+                  <div className="text-center text-gray-400 text-xs py-8 space-y-2">
+                    <p className="font-bold">Find already registered drivers</p>
+                    <p className="text-[10px] text-gray-400/80 leading-relaxed max-w-[280px] mx-auto">
+                      If a driver has already signed up on the app, search their name or phone to assign them to your farm roster.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Full Name *</label>
+                <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Ramesh Kumar" className={inputCls} autoFocus />
+              </div>
+              <div>
+                <label className={labelCls}>Phone Number *</label>
+                <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="10-digit mobile number" className={inputCls} type="tel" maxLength={15} />
+              </div>
+              <div>
+                <label className={labelCls}>Login Password *</label>
+                <div className="relative">
+                  <input
+                    value={form.password}
+                    onChange={e => set('password', e.target.value)}
+                    placeholder="Min 6 characters"
+                    type={showPass ? 'text' : 'password'}
+                    className={inputCls + ' pr-12'}
+                  />
+                  <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">They'll use this to log in to the delivery app</p>
+              </div>
+              <div>
+                <label className={labelCls}>Vehicle Type *</label>
+                <select value={form.vehicleType} onChange={e => set('vehicleType', e.target.value)}
+                  className={inputCls + ' cursor-pointer'}>
+                  {VEHICLE_TYPES.map(v => <option key={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>License Number <span className="text-gray-300 font-medium normal-case">(optional)</span></label>
+                <input value={form.licenseNumber} onChange={e => set('licenseNumber', e.target.value)} placeholder="DL-XXXXXXXXXX" className={inputCls} />
+              </div>
+
+              {/* Info box */}
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
+                <UserCheck className="h-5 w-5 text-[#0052cc] shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-bold mb-0.5">What happens after registration?</p>
+                  <ul className="text-xs space-y-0.5 text-blue-600 list-disc list-inside">
+                    <li>A login account is created for them</li>
+                    <li>They can log in at <span className="font-bold">/login</span></li>
+                    <li>You can assign them to routes immediately</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 flex gap-3">
+        <div className="p-6 border-t border-gray-100 flex gap-3 bg-gray-50/50">
           <Button variant="outline" className="flex-1 h-12 rounded-2xl font-bold" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button className="flex-1 h-12 rounded-2xl font-black bg-[#0052cc] hover:bg-[#003d99] text-white shadow-lg shadow-blue-500/20" onClick={handleSubmit} disabled={saving}>
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Registering...</> : 'Register'}
-          </Button>
+          {activeTab === 'create' && (
+            <Button className="flex-1 h-12 rounded-2xl font-black bg-[#0052cc] hover:bg-[#003d99] text-white shadow-lg shadow-blue-500/20" onClick={handleSubmit} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Registering...</> : 'Register'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

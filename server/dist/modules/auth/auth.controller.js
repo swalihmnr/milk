@@ -7,6 +7,7 @@ exports.resetPassword = exports.forgotPassword = exports.updateProfile = exports
 const User_1 = __importDefault(require("../../models/User"));
 const Role_1 = __importDefault(require("../../models/Role"));
 const UserRole_1 = __importDefault(require("../../models/UserRole"));
+const DeliveryBoy_1 = __importDefault(require("../../models/DeliveryBoy"));
 const hash_1 = require("../../utils/hash");
 const jwt_1 = require("../../utils/jwt");
 const signup = async (req, res, next) => {
@@ -38,6 +39,9 @@ const signup = async (req, res, next) => {
                 city: city || undefined,
                 state: state || undefined,
                 herdSize: herdSize ? Number(herdSize) : undefined,
+            }),
+            // Save location for both farmers and drivers
+            ...(['farmer', 'delivery', 'delivery_boy'].includes(role) && {
                 lat: lat ? Number(lat) : undefined,
                 lon: lon ? Number(lon) : undefined,
             })
@@ -46,6 +50,14 @@ const signup = async (req, res, next) => {
             userId: user._id,
             roleId: userRole._id
         });
+        if (role === 'delivery' || role === 'delivery_boy') {
+            await DeliveryBoy_1.default.create({
+                userId: user._id,
+                vehicleType: 'Bicycle',
+                isActive: true,
+                isVerified: false
+            });
+        }
         const token = (0, jwt_1.generateToken)(user.id, [userRole.name]);
         (0, jwt_1.setTokenCookie)(res, token);
         res.status(201).json({
@@ -56,6 +68,7 @@ const signup = async (req, res, next) => {
                 phone: user.phone,
                 email: user.email,
                 roles: [userRole.name],
+                isVerified: (role === 'delivery' || role === 'delivery_boy') ? false : true,
                 ...(role === 'farmer' && { farmName: user.farmName, village: user.village, city: user.city, state: user.state, herdSize: user.herdSize })
             }
         });
@@ -89,6 +102,11 @@ const login = async (req, res, next) => {
         await user.save();
         const token = (0, jwt_1.generateToken)(user.id, roleNames);
         (0, jwt_1.setTokenCookie)(res, token);
+        let isVerified = true;
+        if (roleNames.some(r => ['delivery', 'delivery_boy'].includes(r))) {
+            const dboy = await DeliveryBoy_1.default.findOne({ userId: user._id });
+            isVerified = dboy ? dboy.isVerified : false;
+        }
         res.status(200).json({
             message: 'Login successful',
             user: {
@@ -96,7 +114,8 @@ const login = async (req, res, next) => {
                 name: user.name,
                 phone: user.phone,
                 email: user.email,
-                roles: roleNames
+                roles: roleNames,
+                isVerified
             }
         });
     }
@@ -122,8 +141,18 @@ const getMe = async (req, res, next) => {
         const user = await User_1.default.findById(req.user.id).select('-passwordHash');
         const userRoles = await UserRole_1.default.find({ userId: req.user.id }).populate('roleId');
         const roleNames = userRoles.map((ur) => ur.roleId?.name).filter(Boolean);
+        let isVerified = true;
+        if (roleNames.some(r => ['delivery', 'delivery_boy'].includes(r))) {
+            const dboy = await DeliveryBoy_1.default.findOne({ userId: req.user.id });
+            isVerified = dboy ? dboy.isVerified : false;
+        }
         // Merge user document with role for the frontend
-        const data = { ...user?.toObject(), role: roleNames[0] || 'farmer', roles: roleNames };
+        const data = {
+            ...user?.toObject(),
+            role: roleNames[0] || 'farmer',
+            roles: roleNames,
+            isVerified
+        };
         res.status(200).json({ data });
     }
     catch (error) {

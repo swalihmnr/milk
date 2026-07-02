@@ -351,10 +351,122 @@ function VendorApprovals() {
   );
 }
 
+function DeliveryBoyApprovals() {
+  const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'pending' | 'history'>('pending');
+
+  const fetchDeliveryBoys = async () => {
+    try {
+      const res = await api.get('/admin/delivery-boys');
+      setDeliveryBoys(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeliveryBoys();
+  }, []);
+
+  const handleVerifyUpdate = async (id: string, isVerified: boolean) => {
+    try {
+      await api.patch(`/admin/delivery-boys/${id}/verify`, { isVerified });
+      fetchDeliveryBoys();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update delivery boy verification');
+    }
+  };
+
+  const displayBoys = deliveryBoys.filter(b => filter === 'pending' ? !b.isVerified : b.isVerified);
+
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-[#0052cc]" /></div>;
+
+  return (
+    <div className="mt-4">
+      <FilterToggle filter={filter} setFilter={setFilter} labels={{ pending: 'Needs Verification', history: 'Verified Delivery Boys' }} />
+
+      {displayBoys.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-3xl p-16 text-center shadow-sm">
+          <ShieldAlert className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-gray-900 mb-1">
+            {filter === 'pending' ? 'No pending delivery boys' : 'No verified delivery boys yet'}
+          </h3>
+          <p className="text-gray-500 font-medium">
+            {filter === 'pending' ? 'There are currently no new delivery boys waiting for verification.' : 'Verification history is empty.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {displayBoys.map(boy => (
+            <div key={boy._id} className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm hover:shadow transition-all">
+              <div>
+                <div className="flex items-center gap-3">
+                  <p className="font-black text-gray-900 text-lg flex items-center gap-2">
+                    {boy.userId?.name || 'Unknown User'}
+                    <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg">{boy.userId?.phone}</span>
+                  </p>
+                  {filter === 'history' && (
+                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700">
+                      Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2">
+                  <p className="text-sm text-gray-600">
+                    Vehicle: <span className="font-bold text-gray-900">{boy.vehicleType}</span>
+                  </p>
+                  {boy.licenseNumber && (
+                    <>
+                      <span className="hidden sm:inline text-gray-300">•</span>
+                      <p className="text-sm text-gray-600">
+                        License: <span className="font-bold text-gray-955">{boy.licenseNumber}</span>
+                      </p>
+                    </>
+                  )}
+                  {boy.vendorId && (
+                    <>
+                      <span className="hidden sm:inline text-gray-300">•</span>
+                      <p className="text-sm text-gray-600">
+                        Assigned Farmer: <span className="font-bold text-gray-900">{boy.vendorId?.farmName || boy.vendorId?.name}</span>
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              {filter === 'pending' ? (
+                <div className="flex gap-3 w-full md:w-auto">
+                  <button
+                    onClick={() => handleVerifyUpdate(boy._id, true)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#0052cc] hover:bg-[#0052cc]/90 text-white text-sm font-black rounded-xl shadow-sm transition-colors active:scale-95"
+                  >
+                    <Check className="h-4 w-4" /> Verify Account
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-3 w-full md:w-auto">
+                  <button
+                    onClick={() => handleVerifyUpdate(boy._id, false)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-black rounded-xl transition-colors active:scale-95"
+                  >
+                    Revoke Verification
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminApprovals() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [activeTab, setActiveTab] = useState<'farmer-jobs' | 'driver-apps' | 'vendors'>('farmer-jobs');
+  const [activeTab, setActiveTab] = useState<'farmer-jobs' | 'driver-apps' | 'vendors' | 'delivery-boys'>('farmer-jobs');
 
   if (!isAdmin) return null;
 
@@ -384,11 +496,18 @@ export default function AdminApprovals() {
         >
           Vendor Registrations
         </button>
+        <button
+          onClick={() => setActiveTab('delivery-boys')}
+          className={`pb-3 px-2 text-sm font-black tracking-wide transition-colors border-b-2 ${activeTab === 'delivery-boys' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-gray-400 hover:text-gray-700'}`}
+        >
+          Delivery Boys
+        </button>
       </div>
 
       {activeTab === 'farmer-jobs' && <FarmerJobRequests />}
       {activeTab === 'driver-apps' && <DriverJobApplications />}
       {activeTab === 'vendors' && <VendorApprovals />}
+      {activeTab === 'delivery-boys' && <DeliveryBoyApprovals />}
     </div>
   );
 }

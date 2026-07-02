@@ -27,6 +27,7 @@ const dashboard_routes_1 = __importDefault(require("./modules/dashboard/dashboar
 const vendor_routes_1 = __importDefault(require("./modules/vendors/vendor.routes"));
 const wallet_routes_1 = __importDefault(require("./modules/wallet/wallet.routes"));
 const admin_routes_1 = __importDefault(require("./modules/admin/admin.routes"));
+const jobs_routes_1 = __importDefault(require("./modules/jobs/jobs.routes"));
 const app = (0, express_1.default)();
 // Security Middlewares
 app.use((0, helmet_1.default)());
@@ -57,6 +58,7 @@ app.use('/api/dashboard', dashboard_routes_1.default);
 app.use('/api/vendors', vendor_routes_1.default);
 app.use('/api/wallet', wallet_routes_1.default);
 app.use('/api/admin', admin_routes_1.default);
+app.use('/api/jobs', jobs_routes_1.default);
 const seed_1 = require("./utils/seed");
 app.get('/api/health/seed', async (req, res, next) => {
     try {

@@ -6,6 +6,7 @@ export interface IDeliveryBoy extends Document {
   vehicleType: string;
   licenseNumber?: string;
   isActive: boolean;
+  isVerified: boolean;
   currentLat?: number;
   currentLon?: number;
   totalDeliveries: number;
@@ -20,6 +21,7 @@ const DeliveryBoySchema: Schema = new Schema({
   vehicleType: { type: String, required: true },
   licenseNumber: { type: String },
   isActive: { type: Boolean, default: true },
+  isVerified: { type: Boolean, default: false },
   currentLat: { type: Number },
   currentLon: { type: Number },
   totalDeliveries: { type: Number, default: 0 },

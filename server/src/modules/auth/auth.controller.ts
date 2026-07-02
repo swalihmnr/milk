@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import User from '../../models/User';
 import Role from '../../models/Role';
 import UserRole from '../../models/UserRole';
+import DeliveryBoy from '../../models/DeliveryBoy';
 import { hashPassword, comparePassword } from '../../utils/hash';
 import { generateToken, setTokenCookie } from '../../utils/jwt';
 
@@ -51,6 +52,15 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
       roleId: userRole._id
     });
 
+    if (role === 'delivery' || role === 'delivery_boy') {
+      await DeliveryBoy.create({
+        userId: user._id,
+        vehicleType: 'Bicycle',
+        isActive: true,
+        isVerified: false
+      });
+    }
+
     const token = generateToken(user.id, [userRole.name]);
     setTokenCookie(res, token);
 
@@ -62,6 +72,7 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
         phone: user.phone,
         email: user.email,
         roles: [userRole.name],
+        isVerified: (role === 'delivery' || role === 'delivery_boy') ? false : true,
         ...(role === 'farmer' && { farmName: user.farmName, village: user.village, city: user.city, state: user.state, herdSize: user.herdSize })
       }
     });
@@ -101,6 +112,12 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const token = generateToken(user.id, roleNames);
     setTokenCookie(res, token);
 
+    let isVerified = true;
+    if (roleNames.some(r => ['delivery', 'delivery_boy'].includes(r))) {
+      const dboy = await DeliveryBoy.findOne({ userId: user._id });
+      isVerified = dboy ? dboy.isVerified : false;
+    }
+
     res.status(200).json({
       message: 'Login successful',
       user: {
@@ -108,7 +125,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         name: user.name,
         phone: user.phone,
         email: user.email,
-        roles: roleNames
+        roles: roleNames,
+        isVerified
       }
     });
   } catch (error) {
@@ -133,8 +151,20 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
     const user = await User.findById(req.user.id).select('-passwordHash');
     const userRoles = await UserRole.find({ userId: req.user.id }).populate('roleId');
     const roleNames = userRoles.map((ur: any) => ur.roleId?.name).filter(Boolean);
+    
+    let isVerified = true;
+    if (roleNames.some(r => ['delivery', 'delivery_boy'].includes(r))) {
+      const dboy = await DeliveryBoy.findOne({ userId: req.user.id });
+      isVerified = dboy ? dboy.isVerified : false;
+    }
+
     // Merge user document with role for the frontend
-    const data = { ...user?.toObject(), role: roleNames[0] || 'farmer', roles: roleNames };
+    const data = { 
+      ...user?.toObject(), 
+      role: roleNames[0] || 'farmer', 
+      roles: roleNames,
+      isVerified
+    };
     res.status(200).json({ data });
   } catch (error) {
     next(error);

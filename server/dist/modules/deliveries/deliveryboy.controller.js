@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeDeliveryBoy = exports.toggleDeliveryBoy = exports.registerDeliveryBoy = exports.getDeliveryBoys = void 0;
+exports.assignDeliveryBoy = exports.searchDeliveryBoys = exports.removeDeliveryBoy = exports.toggleDeliveryBoy = exports.registerDeliveryBoy = exports.getDeliveryBoys = void 0;
 const User_1 = __importDefault(require("../../models/User"));
 const DeliveryBoy_1 = __importDefault(require("../../models/DeliveryBoy"));
 const Role_1 = __importDefault(require("../../models/Role"));
@@ -100,10 +100,8 @@ const registerDeliveryBoy = async (req, res, next) => {
     }
 };
 exports.registerDeliveryBoy = registerDeliveryBoy;
-/**
- * PATCH /api/delivery-boys/:id/toggle
- * Activate or deactivate a delivery boy
- */
+// @desc    Toggle active status
+// @route   PATCH /api/delivery-boys/:id/toggle
 const toggleDeliveryBoy = async (req, res, next) => {
     try {
         const farmerId = req.user?.id;
@@ -123,21 +121,19 @@ const toggleDeliveryBoy = async (req, res, next) => {
     }
 };
 exports.toggleDeliveryBoy = toggleDeliveryBoy;
-/**
- * DELETE /api/delivery-boys/:id
- * Removes a delivery boy (DeliveryBoy doc + User account)
- */
+// @desc    Unassign delivery boy (sets vendorId to null instead of deleting user)
+// @route   DELETE /api/delivery-boys/:id
 const removeDeliveryBoy = async (req, res, next) => {
     try {
         const farmerId = req.user?.id;
-        const boy = await DeliveryBoy_1.default.findOneAndDelete({ _id: req.params.id, vendorId: farmerId });
+        const boy = await DeliveryBoy_1.default.findOne({ _id: req.params.id, vendorId: farmerId });
         if (!boy) {
             res.status(404);
             throw new Error('Delivery boy not found');
         }
-        // Remove user account and role mapping
-        await UserRole_1.default.deleteMany({ userId: boy.userId });
-        await User_1.default.findByIdAndDelete(boy.userId);
+        boy.vendorId = null;
+        boy.isActive = false;
+        await boy.save();
         res.status(200).json({ data: {} });
     }
     catch (error) {
@@ -145,3 +141,108 @@ const removeDeliveryBoy = async (req, res, next) => {
     }
 };
 exports.removeDeliveryBoy = removeDeliveryBoy;
+// @desc    Search all delivery boys by name or phone
+// @route   GET /api/delivery-boys/search
+const searchDeliveryBoys = async (req, res, next) => {
+    try {
+        const { query } = req.query;
+        if (!query) {
+            return res.status(200).json({ data: [] });
+        }
+        // Find all users with a delivery role
+        const deliveryRoles = await Role_1.default.find({ name: { $in: ['delivery', 'delivery_boy'] } });
+        const roleIds = deliveryRoles.map(r => r._id);
+        const userRoles = await UserRole_1.default.find({ roleId: { $in: roleIds } });
+        const userIds = userRoles.map(ur => ur.userId);
+        const users = await User_1.default.find({
+            _id: { $in: userIds },
+            $or: [
+                { name: { $regex: query, $options: 'i' } },
+                { phone: { $regex: query, $options: 'i' } }
+            ]
+        }).select('name phone email status');
+        const matchedUserIds = users.map(u => u._id);
+        const boys = await DeliveryBoy_1.default.find({ userId: { $in: matchedUserIds } });
+        const data = users.map((u) => {
+            const dboy = boys.find(b => b.userId.toString() === u._id.toString());
+            return {
+                _id: dboy?._id,
+                userId: u._id,
+                name: u.name,
+                phone: u.phone,
+                email: u.email,
+                vehicleType: dboy?.vehicleType || 'Bicycle',
+                licenseNumber: dboy?.licenseNumber,
+                isVerified: dboy?.isVerified || false,
+                isActive: dboy?.isActive || false,
+                vendorId: dboy?.vendorId
+            };
+        });
+        res.status(200).json({ data });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.searchDeliveryBoys = searchDeliveryBoys;
+// @desc    Assign a registered delivery boy to a farmer
+// @route   PATCH /api/delivery-boys/:id/assign
+const assignDeliveryBoy = async (req, res, next) => {
+    try {
+        const farmerId = req.user?.id;
+        let boy = await DeliveryBoy_1.default.findById(req.params.id);
+        if (!boy) {
+            // Check if it's a User ID instead
+            const user = await User_1.default.findById(req.params.id);
+            if (user) {
+                boy = await DeliveryBoy_1.default.findOne({ userId: user._id });
+                if (!boy) {
+                    boy = await DeliveryBoy_1.default.create({
+                        userId: user._id,
+                        vendorId: farmerId,
+                        vehicleType: 'Bicycle',
+                        isActive: true,
+                        isVerified: true
+                    });
+                }
+                else {
+                    boy.vendorId = farmerId;
+                    boy.isVerified = true;
+                    boy.isActive = true;
+                    await boy.save();
+                }
+            }
+            else {
+                res.status(404);
+                throw new Error('Delivery boy not found');
+            }
+        }
+        else {
+            boy.vendorId = farmerId;
+            boy.isVerified = true;
+            boy.isActive = true;
+            await boy.save();
+        }
+        const user = await User_1.default.findById(boy.userId).select('name phone email status');
+        res.status(200).json({
+            success: true,
+            data: {
+                _id: boy._id,
+                userId: boy.userId,
+                name: user?.name,
+                phone: user?.phone,
+                vehicleType: boy.vehicleType,
+                licenseNumber: boy.licenseNumber,
+                isActive: boy.isActive,
+                isVerified: boy.isVerified,
+                totalDeliveries: boy.totalDeliveries,
+                rating: boy.rating,
+                createdAt: boy.createdAt,
+            }
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.assignDeliveryBoy = assignDeliveryBoy;

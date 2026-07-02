@@ -31,17 +31,24 @@ export default function CustomerDetails() {
   const [openSubModal, setOpenSubModal] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
+  const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [selectedDayDetail, setSelectedDayDetail] = useState<any>(null);
+
   const fetchData = async () => {
     try {
-      const [custRes, subRes, invRes] = await Promise.all([
+      const [custRes, subRes, invRes, delRes] = await Promise.all([
         api.get(`/customers/${id}`),
         api.get(`/subscriptions/customer/${id}`),
-        api.get(`/invoices?customerId=${id}`)
+        api.get(`/invoices?customerId=${id}`),
+        api.get(`/deliveries?customerId=${id}`)
       ]);
       
       setCustomer(custRes.data.data);
       setSubscriptions(subRes.data.data);
       setInvoices(invRes.data.data);
+      setDeliveries(delRes.data?.data || []);
 
       if (custRes.data.data.routeId) {
         try {
@@ -73,6 +80,15 @@ export default function CustomerDetails() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const getDeliveriesForDay = (dayNum: number) => {
+    return deliveries.filter(d => {
+      const dDate = new Date(d.date);
+      return dDate.getFullYear() === currentYear &&
+             dDate.getMonth() === currentMonth &&
+             dDate.getDate() === dayNum;
+    });
   };
 
   if (loading) return (
@@ -259,6 +275,102 @@ export default function CustomerDetails() {
             </CardContent>
           </Card>
 
+          {/* Delivery Calendar (Farmer's Customer Portal) */}
+          <Card className="border-gray-100 shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-xl font-black flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-blue-500" /> Delivery Calendar
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear(y => y - 1);
+                    } else {
+                      setCurrentMonth(m => m - 1);
+                    }
+                  }}
+                  className="h-8 w-8 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-600 active:scale-95"
+                >
+                  &larr;
+                </button>
+                <span className="text-xs font-black text-gray-750 min-w-[85px] text-center">
+                  {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][currentMonth]} {currentYear}
+                </span>
+                <button
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear(y => y + 1);
+                    } else {
+                      setCurrentMonth(m => m + 1);
+                    }
+                  }}
+                  className="h-8 w-8 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-600 active:scale-95"
+                >
+                  &rarr;
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 pt-0">
+              {/* Calendar Grid Weekdays */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="py-1">{d}</div>)}
+              </div>
+
+              {/* Days Grid */}
+              <div className="grid grid-cols-7 gap-2">
+                {/* Empty buffer cells */}
+                {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }).map((_, idx) => (
+                  <div key={`empty-${idx}`} className="aspect-square bg-gray-50/10 rounded-xl border border-dashed border-gray-100/50" />
+                ))}
+
+                {/* Actual cells */}
+                {Array.from({ length: new Date(currentYear, currentMonth + 1, 0).getDate() }).map((_, idx) => {
+                  const dayNum = idx + 1;
+                  const dayDeliveries = getDeliveriesForDay(dayNum);
+                  const isToday = new Date().getDate() === dayNum && new Date().getMonth() === currentMonth && new Date().getFullYear() === currentYear;
+
+                  let cellColor = 'border-gray-100 hover:border-blue-400 hover:shadow-sm cursor-pointer';
+                  let badgeColor = '';
+                  
+                  if (dayDeliveries.length > 0) {
+                    const status = dayDeliveries[0].status;
+                    if (status === 'delivered') {
+                      cellColor = 'border-emerald-100 bg-emerald-50/20 hover:border-emerald-400';
+                      badgeColor = 'bg-emerald-500';
+                    } else if (status === 'missed') {
+                      cellColor = 'border-rose-100 bg-rose-50/20 hover:border-rose-400';
+                      badgeColor = 'bg-rose-500';
+                    } else {
+                      cellColor = 'border-amber-100 bg-amber-50/20 hover:border-amber-400';
+                      badgeColor = 'bg-amber-500';
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={`day-${dayNum}`}
+                      onClick={() => {
+                        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                        setSelectedDayDetail({ day: dayNum, dateStr, deliveries: dayDeliveries });
+                      }}
+                      className={`aspect-square p-2 rounded-xl border text-left flex flex-col justify-between transition-all group ${cellColor} ${isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                    >
+                      <span className={`text-[10px] font-black ${isToday ? 'text-blue-600' : 'text-gray-750'}`}>{dayNum}</span>
+                      {dayDeliveries.length > 0 && (
+                        <div className="flex gap-1 items-center justify-end w-full">
+                          <span className={`h-2 w-2 rounded-full ${badgeColor}`} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Delivery Location Map */}
           <Card className="border-gray-100 shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="p-8 pb-4">
@@ -402,6 +514,134 @@ export default function CustomerDetails() {
                 Terminate Customer
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Day Detail & Mark Status Dialog */}
+      <Dialog open={!!selectedDayDetail} onOpenChange={(open) => !open && setSelectedDayDetail(null)}>
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 text-blue-900 border-b border-blue-100/30 relative">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black">
+                Delivery for {selectedDayDetail?.day} {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][currentMonth]} {currentYear}
+              </DialogTitle>
+              <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mt-1">Mark Daily Status</p>
+            </DialogHeader>
+            <button onClick={() => setSelectedDayDetail(null)} className="absolute top-6 right-6 text-blue-900/40 hover:text-blue-900">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-8 space-y-6">
+            {selectedDayDetail?.deliveries.length > 0 ? (
+              <div className="space-y-4">
+                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Current Record</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-black text-gray-900 text-sm">{activeSub?.planName || 'Milk Plan'}</p>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5">Quantity: {selectedDayDetail.deliveries[0].quantity}L • Shift: {selectedDayDetail.deliveries[0].shift}</p>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+                      selectedDayDetail.deliveries[0].status === 'delivered' ? 'bg-green-100 text-green-700' :
+                      selectedDayDetail.deliveries[0].status === 'missed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedDayDetail.deliveries[0].status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      const deliveryId = selectedDayDetail.deliveries[0]._id;
+                      try {
+                        await api.patch(`/deliveries/${deliveryId}/status`, { status: 'delivered' });
+                        toast.success("Marked as Delivered");
+                        setSelectedDayDetail(null);
+                        fetchData();
+                      } catch { toast.error("Failed to update status"); }
+                    }}
+                    className="flex-1 rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black"
+                  >
+                    Mark Delivered
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const deliveryId = selectedDayDetail.deliveries[0]._id;
+                      try {
+                        await api.patch(`/deliveries/${deliveryId}/status`, { status: 'missed' });
+                        toast.success("Marked as Missed");
+                        setSelectedDayDetail(null);
+                        fetchData();
+                      } catch { toast.error("Failed to update status"); }
+                    }}
+                    className="flex-1 rounded-xl h-11 bg-rose-600 hover:bg-rose-700 text-white font-black"
+                  >
+                    Mark Missed
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 border-2 border-dashed border-gray-100 rounded-2xl text-center space-y-1">
+                  <AlertCircle className="h-6 w-6 text-gray-300 mx-auto" />
+                  <p className="font-bold text-gray-500 text-sm">No delivery record created for this day</p>
+                  <p className="text-[10px] text-gray-400 font-medium">Create a record below to keep track of this delivery.</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      if (!customer.routeId) {
+                        toast.error("Please assign a route to this customer first");
+                        return;
+                      }
+                      try {
+                        await api.post('/deliveries', {
+                          customerId: id,
+                          routeId: customer.routeId,
+                          date: selectedDayDetail.dateStr,
+                          shift: 'morning',
+                          quantity: activeSub?.quantity || 1,
+                          status: 'delivered'
+                        });
+                        toast.success("Created and marked Delivered");
+                        setSelectedDayDetail(null);
+                        fetchData();
+                      } catch { toast.error("Failed to create record"); }
+                    }}
+                    className="flex-1 rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black"
+                  >
+                    Mark Delivered
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!customer.routeId) {
+                        toast.error("Please assign a route to this customer first");
+                        return;
+                      }
+                      try {
+                        await api.post('/deliveries', {
+                          customerId: id,
+                          routeId: customer.routeId,
+                          date: selectedDayDetail.dateStr,
+                          shift: 'morning',
+                          quantity: activeSub?.quantity || 1,
+                          status: 'missed'
+                        });
+                        toast.success("Created and marked Missed");
+                        setSelectedDayDetail(null);
+                        fetchData();
+                      } catch { toast.error("Failed to create record"); }
+                    }}
+                    className="flex-1 rounded-xl h-11 bg-rose-600 hover:bg-rose-700 text-white font-black"
+                  >
+                    Mark Missed
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

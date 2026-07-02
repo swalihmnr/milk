@@ -129,6 +129,7 @@ export const seedDatabase = async () => {
       vehicleType: 'Motorcycle',
       licenseNumber: 'MH-12-DB-2023-009',
       isActive: true,
+      isVerified: true,
       currentLat: 18.5210,
       currentLon: 73.8570,
       totalDeliveries: 45,

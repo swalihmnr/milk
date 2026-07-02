@@ -120,6 +120,7 @@ const seedDatabase = async () => {
             vehicleType: 'Motorcycle',
             licenseNumber: 'MH-12-DB-2023-009',
             isActive: true,
+            isVerified: true,
             currentLat: 18.5210,
             currentLon: 73.8570,
             totalDeliveries: 45,
@@ -427,30 +428,18 @@ const seedDatabase = async () => {
             status: 'unpaid'
         });
         console.log('Invoice created.');
-        // 15. Create initial deliveries for today for the Delivery Boy route
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        await Delivery_1.default.create({
-            farmerId: farmerUser._id,
-            customerId: customer1._id,
-            deliveryBoyId: dboyUser._id,
-            routeId: mainRoute._id,
-            date: today,
-            shift: 'morning',
-            quantity: 1,
-            status: 'pending'
-        });
-        await Delivery_1.default.create({
-            farmerId: farmerUser._id,
-            customerId: customer3._id,
-            deliveryBoyId: dboyUser._id,
-            routeId: mainRoute._id,
-            date: today,
-            shift: 'morning',
-            quantity: 2,
-            status: 'pending'
-        });
-        console.log('Deliveries for today created.');
+        for (let i = 0; i < 10; i++) {
+            await Delivery_1.default.create({
+                farmerId: farmerUser._id,
+                customerId: customer1._id,
+                deliveryBoyId: dboyUser._id,
+                routeId: mainRoute._id,
+                date: new Date(),
+                shift: 'morning',
+                quantity: 1,
+                status: 'pending'
+            });
+        }
         console.log('Database Seeding Completed Successfully!');
     }
     catch (error) {

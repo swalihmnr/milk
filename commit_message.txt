@@ -1,0 +1,8 @@
+feat: implement delivery boy assignment flow and interactive delivery calendars
+
+- Add isVerified check to DeliveryBoy schema and restrict access for unverified drivers via DeliveryAppLayout
+- Add "Delivery Boys" approvals tab inside AdminApprovals screen to manage status
+- Implement GET /api/delivery-boys/search and PATCH /api/delivery-boys/:id/assign backend endpoints
+- Redesign delivery boy registration modal with Search Registered and Create Account tabs
+- Relax delivery validation schema to support manual status overrides (delivered/missed)
+- Add interactive markable calendars to Farmer's CustomerDetails and Customer's MySubscriptions pages

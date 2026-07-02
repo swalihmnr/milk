@@ -34,27 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const DeliverySchema = new mongoose_1.Schema({
-    farmerId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
-    customerId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Customer', required: true },
-    deliveryBoyId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
-    routeId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Route', required: true },
-    date: { type: Date, required: true },
-    shift: { type: String, enum: ['morning', 'evening'], required: true },
-    quantity: { type: Number, required: true },
-    status: { type: String, enum: ['pending', 'delivered', 'missed'], default: 'pending' },
-    proofImageUrl: { type: String },
-    deliveryLat: { type: Number },
-    deliveryLon: { type: Number },
-    confirmedAt: { type: Date },
-    complaintWindowEndsAt: { type: Date },
-    isAutoConfirmed: { type: Boolean, default: false },
-    missedReason: { type: String },
-    notes: { type: String },
-    // OTP for in-person handover verification
-    handoverOtp: { type: String },
-    handoverOtpExpiresAt: { type: Date }
+const JobApplicationSchema = new mongoose_1.Schema({
+    jobId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'DeliveryJob', required: true },
+    driverId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    status: {
+        type: String,
+        enum: ['pending', 'verified_by_admin', 'accepted', 'rejected'],
+        default: 'pending'
+    },
+    appliedAt: { type: Date, default: Date.now }
 }, {
     timestamps: true
 });
-exports.default = mongoose_1.default.model('Delivery', DeliverySchema);
+// A driver can only apply to a specific job once
+JobApplicationSchema.index({ jobId: 1, driverId: 1 }, { unique: true });
+exports.default = mongoose_1.default.model('JobApplication', JobApplicationSchema);

@@ -80,6 +80,35 @@ export default function MySubscriptions() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDayDetail, setSelectedDayDetail] = useState<any>(null);
 
+  const [markedDeliveries, setMarkedDeliveries] = useState<Record<string, 'delivered' | 'missed'>>({});
+
+  useEffect(() => {
+    const localMarked = localStorage.getItem('mockMarkedDeliveries');
+    if (localMarked) {
+      setMarkedDeliveries(JSON.parse(localMarked));
+    }
+  }, []);
+
+  const saveMarkedDeliveries = (updated: Record<string, 'delivered' | 'missed'>) => {
+    setMarkedDeliveries(updated);
+    localStorage.setItem('mockMarkedDeliveries', JSON.stringify(updated));
+  };
+
+  const toggleDeliveryStatus = (dayNum: number, currentStatus: string) => {
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const nextStatus: 'delivered' | 'missed' = currentStatus === 'delivered' ? 'missed' : 'delivered';
+    const updated: Record<string, 'delivered' | 'missed'> = { ...markedDeliveries, [dateKey]: nextStatus };
+    saveMarkedDeliveries(updated);
+    
+    if (selectedDayDetail) {
+      const updatedDeliveries = selectedDayDetail.deliveries.map((del: any) => ({
+        ...del,
+        dayStatus: nextStatus
+      }));
+      setSelectedDayDetail({ ...selectedDayDetail, deliveries: updatedDeliveries });
+    }
+  };
+
   const saveSubs = (newSubs: Subscription[]) => {
     setSubscriptions(newSubs);
     localStorage.setItem('mockSubscriptions', JSON.stringify(newSubs));
@@ -202,8 +231,12 @@ export default function MySubscriptions() {
 
       const today = new Date();
       const resetToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      let finalStatus: 'delivered' | 'scheduled' | 'paused' | 'vacation' = dayStatus;
-      if (dayStatus === 'scheduled' && targetDate < resetToday) {
+      const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      let finalStatus: 'delivered' | 'scheduled' | 'paused' | 'vacation' | 'missed' = dayStatus;
+      
+      if (markedDeliveries[dateKey]) {
+        finalStatus = markedDeliveries[dateKey] as any;
+      } else if (dayStatus === 'scheduled' && targetDate < resetToday) {
         finalStatus = 'delivered';
       }
 
@@ -471,6 +504,7 @@ export default function MySubscriptions() {
                           if (del.dayStatus === 'delivered') badgeColor = 'bg-emerald-500';
                           else if (del.dayStatus === 'paused') badgeColor = 'bg-slate-300';
                           else if (del.dayStatus === 'vacation') badgeColor = 'bg-amber-500';
+                          else if (del.dayStatus === 'missed') badgeColor = 'bg-rose-500';
 
                           return (
                             <span 
@@ -578,6 +612,9 @@ export default function MySubscriptions() {
                     {del.dayStatus === 'delivered' && (
                       <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">Delivered</span>
                     )}
+                    {del.dayStatus === 'missed' && (
+                      <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">Not Delivered</span>
+                    )}
                     {del.dayStatus === 'scheduled' && (
                       <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">Scheduled</span>
                     )}
@@ -589,10 +626,26 @@ export default function MySubscriptions() {
                     )}
                   </div>
                   
-                  <div className="flex justify-between text-xs text-slate-650 pt-2 border-t border-slate-100">
+                  <div className="flex justify-between text-xs text-slate-605 pt-2 border-t border-slate-100">
                     <span>Quantity: <strong>{del.quantity} unit(s)</strong></span>
                     <span>Est. Time: <strong>6:00 AM - 7:30 AM</strong></span>
                   </div>
+
+                  {/* Toggle controls */}
+                  {['scheduled', 'delivered', 'missed'].includes(del.dayStatus) && (
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        onClick={() => toggleDeliveryStatus(selectedDayDetail.day, del.dayStatus)}
+                        className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border transition-all active:scale-95 ${
+                          del.dayStatus === 'delivered' 
+                            ? 'bg-rose-50 text-rose-650 border-rose-100 hover:bg-rose-100' 
+                            : 'bg-emerald-55 bg-opacity-10 text-emerald-655 border-emerald-100 hover:bg-emerald-50'
+                        }`}
+                      >
+                        {del.dayStatus === 'delivered' ? 'Mark Not Delivered' : 'Mark Delivered'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
